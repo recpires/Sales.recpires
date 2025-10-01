@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/common';
+import authService from '../services/authService';
 
 interface LoginPageProps {
   onLogin?: (email: string, password: string) => void;
 }
 
 const LoginPage = ({ onLogin }: LoginPageProps) => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -39,13 +42,49 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
     }
 
     setIsLoading(true);
+    setErrors({});
 
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await authService.login({ email, password });
+
+      // Call onLogin callback if provided
       if (onLogin) {
         onLogin(email, password);
       }
-    }, 1000);
+
+      // Redirect to home page
+      navigate('/home');
+    } catch (error: any) {
+      console.error('Login error:', error);
+
+      // Handle different error types
+      if (error.response?.data) {
+        const errorData = error.response.data;
+
+        // Check for field-specific errors
+        if (errorData.email) {
+          setErrors((prev) => ({ ...prev, email: errorData.email[0] }));
+        }
+        if (errorData.password) {
+          setErrors((prev) => ({ ...prev, password: errorData.password[0] }));
+        }
+
+        // Check for non-field errors or general error message
+        if (errorData.non_field_errors) {
+          setErrors((prev) => ({ ...prev, general: errorData.non_field_errors[0] }));
+        } else if (errorData.detail) {
+          setErrors((prev) => ({ ...prev, general: errorData.detail }));
+        } else if (!errorData.email && !errorData.password) {
+          setErrors((prev) => ({ ...prev, general: 'Invalid credentials. Please try again.' }));
+        }
+      } else if (error.request) {
+        setErrors((prev) => ({ ...prev, general: 'Cannot connect to server. Please try again later.' }));
+      } else {
+        setErrors((prev) => ({ ...prev, general: 'An unexpected error occurred.' }));
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -63,46 +102,56 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 p-4">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-orange-600 via-orange-500 to-amber-400 p-4">
       {/* Background com elementos flutuantes */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* Gradiente base */}
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/90 via-purple-900/80 to-pink-800/90"></div>
-        
+        <div className="absolute inset-0 bg-gradient-to-br from-orange-600/90 via-orange-500/85 to-amber-400/90"></div>
+
         {/* Formas orgânicas animadas */}
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/30 to-pink-400/30 rounded-full blur-3xl animate-float"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400/30 to-cyan-400/30 rounded-full blur-3xl animate-float animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-pink-400/20 to-purple-400/20 rounded-full blur-3xl animate-float animation-delay-4000"></div>
-        
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-orange-400/30 to-amber-400/30 rounded-full blur-3xl animate-float"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-white/20 to-orange-200/30 rounded-full blur-3xl animate-float animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-orange-300/20 to-white/10 rounded-full blur-3xl animate-float animation-delay-4000"></div>
+
         {/* Partículas flutuantes */}
-        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white/40 rounded-full animate-bounce animation-delay-1000"></div>
-        <div className="absolute top-3/4 right-1/4 w-1 h-1 bg-purple-300/60 rounded-full animate-bounce animation-delay-3000"></div>
-        <div className="absolute top-1/2 right-1/3 w-1.5 h-1.5 bg-pink-300/50 rounded-full animate-bounce animation-delay-5000"></div>
-        <div className="absolute top-1/3 right-1/2 w-1 h-1 bg-blue-300/40 rounded-full animate-bounce animation-delay-2000"></div>
+        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-white/50 rounded-full animate-bounce animation-delay-1000"></div>
+        <div className="absolute top-3/4 right-1/4 w-1 h-1 bg-orange-200/70 rounded-full animate-bounce animation-delay-3000"></div>
+        <div className="absolute top-1/2 right-1/3 w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce animation-delay-5000"></div>
+        <div className="absolute top-1/3 right-1/2 w-1 h-1 bg-orange-300/50 rounded-full animate-bounce animation-delay-2000"></div>
       </div>
 
       {/* Container principal */}
       <div className="w-full max-w-md relative z-10" id="login-card">
         {/* Login Card com glassmorphism */}
-        <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl shadow-purple-500/10 p-8 animate-fadeInUp">
+        <div className="backdrop-blur-xl bg-white/95 border border-orange-100/50 rounded-3xl shadow-2xl shadow-orange-600/20 p-8 animate-fadeInUp">
           {/* Header com logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 rounded-2xl mb-6 shadow-lg shadow-purple-500/25 animate-glow">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 rounded-2xl mb-6 shadow-lg shadow-orange-500/30 animate-glow">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent mb-2">
-              Welcome Back
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 bg-clip-text text-transparent mb-2">
+              Bem vindo ao Sales IA
             </h1>
-            <p className="text-purple-200">Sign in to your account</p>
+            <p className="text-gray-600">Sign in to your account</p>
           </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* General Error Message */}
+            {errors.general && (
+              <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-2xl flex items-start">
+                <svg className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm">{errors.general}</span>
+              </div>
+            )}
+
             {/* Email Field */}
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-purple-200">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email
               </label>
               <div className="relative">
@@ -115,13 +164,13 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     if (errors.email) setErrors({ ...errors, email: undefined });
                   }}
                   disabled={isLoading}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm hover:animate-shimmer"
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 hover:border-orange-300"
                   placeholder="your@email.com"
                 />
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/10 to-orange-400/10 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
               </div>
               {errors.email && (
-                <p className="text-pink-400 text-sm flex items-center">
+                <p className="text-red-600 text-sm flex items-center">
                   <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
@@ -132,7 +181,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
             {/* Password Field */}
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-purple-200">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
               <div className="relative">
@@ -145,13 +194,13 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     if (errors.password) setErrors({ ...errors, password: undefined });
                   }}
                   disabled={isLoading}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300 backdrop-blur-sm pr-12 hover:animate-shimmer"
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 pr-12 hover:border-orange-300"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-300 hover:text-white transition-colors duration-200"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-orange-600 transition-colors duration-200"
                   disabled={isLoading}
                 >
                   {showPassword ? (
@@ -165,10 +214,10 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     </svg>
                   )}
                 </button>
-                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/20 to-pink-500/20 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/10 to-orange-400/10 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
               </div>
               {errors.password && (
-                <p className="text-pink-400 text-sm flex items-center">
+                <p className="text-red-600 text-sm flex items-center">
                   <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
@@ -182,11 +231,11 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               <label className="flex items-center cursor-pointer group">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 text-purple-500 bg-white/10 border-white/30 rounded focus:ring-purple-500 focus:ring-offset-0"
+                  className="w-4 h-4 text-orange-500 bg-white border-gray-300 rounded focus:ring-orange-500 focus:ring-offset-0"
                 />
-                <span className="ml-2 text-purple-300 group-hover:text-white transition-colors duration-200">Remember me</span>
+                <span className="ml-2 text-gray-600 group-hover:text-orange-600 transition-colors duration-200">Remember me</span>
               </label>
-              <a href="#" className="text-purple-300 hover:text-white font-medium transition-colors duration-200 hover:underline">
+              <a href="#" className="text-orange-600 hover:text-orange-700 font-medium transition-colors duration-200 hover:underline">
                 Forgot password?
               </a>
             </div>
@@ -197,7 +246,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               variant="primary"
               size="lg"
               disabled={isLoading}
-              className="w-full gradient-animated text-white font-semibold py-4 rounded-2xl shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/40 transform hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-4 rounded-2xl shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/50 transform hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">
@@ -214,10 +263,10 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           </form>
 
           {/* Footer */}
-          <div className="mt-8 pt-6 border-t border-white/10">
-            <p className="text-center text-sm text-purple-300">
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <p className="text-center text-sm text-gray-600">
               Don't have an account?{' '}
-              <a href="#" className="text-white hover:text-purple-200 font-semibold transition-colors duration-200 hover:underline">
+              <a href="#" className="text-orange-600 hover:text-orange-700 font-semibold transition-colors duration-200 hover:underline">
                 Sign up
               </a>
             </p>
@@ -226,7 +275,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
         {/* Branding */}
         <div className="mt-8 text-center">
-          <p className="text-white/60 text-sm">
+          <p className="text-white/80 text-sm">
             &copy; 2025 Sales Dashboard. All rights reserved.
           </p>
         </div>
