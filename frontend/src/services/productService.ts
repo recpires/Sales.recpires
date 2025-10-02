@@ -1,16 +1,5 @@
 import api from './api';
-
-export interface Product {
-  id: number;
-  name: string;
-  description: string;
-  price: string;
-  stock: number;
-  category: string;
-  sku: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Product } from '../types/product';
 
 export interface ProductListResponse {
   count: number;

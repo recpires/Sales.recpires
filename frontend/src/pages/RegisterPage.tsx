@@ -3,35 +3,73 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/common';
 import authService from '../services/authService';
 
-interface LoginPageProps {
-  onLogin?: (email: string, password: string) => void;
-}
-
-const LoginPage = ({ onLogin }: LoginPageProps) => {
+const RegisterPage = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    password: '',
+    password2: '',
+    first_name: '',
+    last_name: '',
+  });
+  const [errors, setErrors] = useState<{
+    username?: string;
+    email?: string;
+    password?: string;
+    password2?: string;
+    first_name?: string;
+    last_name?: string;
+    general?: string;
+  }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
 
   const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
+    const newErrors: {
+      username?: string;
+      email?: string;
+      password?: string;
+      password2?: string;
+      first_name?: string;
+      last_name?: string;
+    } = {};
 
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'invalido formato de email';
+    if (!formData.username) {
+      newErrors.username = 'Nome de usuário é obrigatório';
+    } else if (formData.username.length < 3) {
+      newErrors.username = 'Nome de usuário deve ter no mínimo 3 caracteres';
     }
 
-    if (!password) {
-      newErrors.password = 'Password é obrigatório';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password deve ter no mínimo 6 caracteres';
+    if (!formData.email) {
+      newErrors.email = 'Email é obrigatório';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Formato de email inválido';
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Senha é obrigatória';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Senha deve ter no mínimo 6 caracteres';
+    }
+
+    if (!formData.password2) {
+      newErrors.password2 = 'Confirmação de senha é obrigatória';
+    } else if (formData.password !== formData.password2) {
+      newErrors.password2 = 'As senhas não coincidem';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name as keyof typeof errors]) {
+      setErrors({ ...errors, [name]: undefined });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,37 +83,38 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
     setErrors({});
 
     try {
-      await authService.login({ email, password });
-
-      // Call onLogin callback if provided
-      if (onLogin) {
-        onLogin(email, password);
-      }
+      await authService.register(formData);
 
       // Redirect to home page
       navigate('/home');
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('Register error:', error);
 
       // Handle different error types
       if (error.response?.data) {
         const errorData = error.response.data;
 
         // Check for field-specific errors
+        if (errorData.username) {
+          setErrors((prev) => ({ ...prev, username: Array.isArray(errorData.username) ? errorData.username[0] : errorData.username }));
+        }
         if (errorData.email) {
-          setErrors((prev) => ({ ...prev, email: errorData.email[0] }));
+          setErrors((prev) => ({ ...prev, email: Array.isArray(errorData.email) ? errorData.email[0] : errorData.email }));
         }
         if (errorData.password) {
-          setErrors((prev) => ({ ...prev, password: errorData.password[0] }));
+          setErrors((prev) => ({ ...prev, password: Array.isArray(errorData.password) ? errorData.password[0] : errorData.password }));
+        }
+        if (errorData.password2) {
+          setErrors((prev) => ({ ...prev, password2: Array.isArray(errorData.password2) ? errorData.password2[0] : errorData.password2 }));
         }
 
         // Check for non-field errors or general error message
         if (errorData.non_field_errors) {
-          setErrors((prev) => ({ ...prev, general: errorData.non_field_errors[0] }));
+          setErrors((prev) => ({ ...prev, general: Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors[0] : errorData.non_field_errors }));
         } else if (errorData.detail) {
           setErrors((prev) => ({ ...prev, general: errorData.detail }));
-        } else if (!errorData.email && !errorData.password) {
-          setErrors((prev) => ({ ...prev, general: 'Credenciais inválidas. Por favor, tente novamente.' }));
+        } else if (!errorData.username && !errorData.email && !errorData.password && !errorData.password2) {
+          setErrors((prev) => ({ ...prev, general: 'Erro ao criar conta. Por favor, tente novamente.' }));
         }
       } else if (error.request) {
         setErrors((prev) => ({ ...prev, general: 'Não foi possível conectar ao servidor. Por favor, tente novamente mais tarde.' }));
@@ -89,7 +128,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
   useEffect(() => {
     // Animação de entrada suave
-    const card = document.getElementById('login-card');
+    const card = document.getElementById('register-card');
     if (card) {
       card.style.opacity = '0';
       card.style.transform = 'translateY(30px) scale(0.95)';
@@ -121,24 +160,24 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       </div>
 
       {/* Container principal */}
-      <div className="w-full max-w-md relative z-10" id="login-card">
-        {/* Login Card com glassmorphism */}
+      <div className="w-full max-w-md relative z-10" id="register-card">
+        {/* Register Card com glassmorphism */}
         <div className="backdrop-blur-xl bg-white/95 border border-orange-100/50 rounded-3xl shadow-2xl shadow-orange-600/20 p-8 animate-fadeInUp">
           {/* Header com logo */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 rounded-2xl mb-6 shadow-lg shadow-orange-500/30 animate-glow">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
               </svg>
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 bg-clip-text text-transparent mb-2">
-              Bem vindo ao Sales IA
+              Criar Conta
             </h1>
-            <p className="text-gray-600">Entrar na sua conta</p>
+            <p className="text-gray-600">Preencha os dados para se cadastrar</p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* General Error Message */}
             {errors.general && (
               <div className="bg-red-50 border border-red-300 text-red-700 px-4 py-3 rounded-2xl flex items-start">
@@ -149,23 +188,49 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               </div>
             )}
 
+            {/* Username Field */}
+            <div className="space-y-2">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                Nome de Usuário *
+              </label>
+              <div className="relative">
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 hover:border-orange-300"
+                  placeholder="usuario123"
+                />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/10 to-orange-400/10 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+              </div>
+              {errors.username && (
+                <p className="text-red-600 text-sm flex items-center">
+                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.username}
+                </p>
+              )}
+            </div>
+
             {/* Email Field */}
             <div className="space-y-2">
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
+                Email *
               </label>
               <div className="relative">
                 <input
                   id="email"
+                  name="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (errors.email) setErrors({ ...errors, email: undefined });
-                  }}
+                  value={formData.email}
+                  onChange={handleChange}
                   disabled={isLoading}
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 hover:border-orange-300"
-                  placeholder="your@email.com"
+                  placeholder="seu@email.com"
                 />
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/10 to-orange-400/10 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
               </div>
@@ -179,20 +244,57 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               )}
             </div>
 
+            {/* First Name and Last Name Fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700">
+                  Nome
+                </label>
+                <div className="relative">
+                  <input
+                    id="first_name"
+                    name="first_name"
+                    type="text"
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 hover:border-orange-300"
+                    placeholder="João"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700">
+                  Sobrenome
+                </label>
+                <div className="relative">
+                  <input
+                    id="last_name"
+                    name="last_name"
+                    type="text"
+                    value={formData.last_name}
+                    onChange={handleChange}
+                    disabled={isLoading}
+                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 hover:border-orange-300"
+                    placeholder="Silva"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Password Field */}
             <div className="space-y-2">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                Senha *
               </label>
               <div className="relative">
                 <input
                   id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (errors.password) setErrors({ ...errors, password: undefined });
-                  }}
+                  value={formData.password}
+                  onChange={handleChange}
                   disabled={isLoading}
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 pr-12 hover:border-orange-300"
                   placeholder="••••••••"
@@ -226,18 +328,49 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
               )}
             </div>
 
-            {/* Remember & Forgot */}
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center cursor-pointer group">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-orange-500 bg-white border-gray-300 rounded focus:ring-orange-500 focus:ring-offset-0"
-                />
-                <span className="ml-2 text-gray-600 group-hover:text-orange-600 transition-colors duration-200">me lembrar</span>
+            {/* Password Confirmation Field */}
+            <div className="space-y-2">
+              <label htmlFor="password2" className="block text-sm font-medium text-gray-700">
+                Confirmar Senha *
               </label>
-              <a href="#" className="text-orange-600 hover:text-orange-700 font-medium transition-colors duration-200 hover:underline">
-                Esqueceu a senha?
-              </a>
+              <div className="relative">
+                <input
+                  id="password2"
+                  name="password2"
+                  type={showPassword2 ? 'text' : 'password'}
+                  value={formData.password2}
+                  onChange={handleChange}
+                  disabled={isLoading}
+                  className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 pr-12 hover:border-orange-300"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword2(!showPassword2)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-orange-600 transition-colors duration-200"
+                  disabled={isLoading}
+                >
+                  {showPassword2 ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/10 to-orange-400/10 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+              </div>
+              {errors.password2 && (
+                <p className="text-red-600 text-sm flex items-center">
+                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                  {errors.password2}
+                </p>
+              )}
             </div>
 
             {/* Submit Button */}
@@ -254,10 +387,10 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  conectando...
+                  Criando conta...
                 </span>
               ) : (
-                'Entrar'
+                'Cadastrar'
               )}
             </Button>
           </form>
@@ -265,9 +398,9 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           {/* Footer */}
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-center text-sm text-gray-600">
-              Não tem uma conta?{' '}
-              <a href="/register" className="text-orange-600 hover:text-orange-700 font-semibold transition-colors duration-200 hover:underline">
-                Cadastrar-se
+              Já tem uma conta?{' '}
+              <a href="/login" className="text-orange-600 hover:text-orange-700 font-semibold transition-colors duration-200 hover:underline">
+                Entrar
               </a>
             </p>
           </div>
@@ -284,4 +417,4 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
   );
 };
 
-export default LoginPage;
+export default RegisterPage;

@@ -16,11 +16,11 @@ const Aside = ({ isOpen, onToggle }: AsideProps) => {
 
   const menuItems: MenuItem[] = [
     {
-      name: 'Dashboard',
+      name: 'Produtos',
       path: '/home',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
         </svg>
       ),
     },
@@ -84,21 +84,47 @@ const Aside = ({ isOpen, onToggle }: AsideProps) => {
         />
       )}
 
+      {/* Botão toggle flutuante quando aside está fechado */}
+      {!isOpen && (
+        <button
+          onClick={onToggle}
+          className="fixed top-4 left-4 z-40 bg-orange-500 hover:bg-orange-600 text-white p-3 rounded-lg shadow-lg transition-all duration-300 lg:hidden"
+          title="Abrir menu"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
+
       <aside
-        className={`fixed lg:static bg-white border-r border-gray-200 w-64 min-h-screen shadow-sm transition-transform duration-300 z-30 ${
+        className={`fixed lg:static bg-white border-r border-gray-200 w-64 min-h-screen shadow-sm transition-all duration-300 z-30 ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="p-6">
-          {/* Botão de fechar para mobile */}
+        <div className="p-6 relative">
+          {/* Botão toggle dentro do aside */}
           <button
             onClick={onToggle}
-            className="lg:hidden absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+            className="hidden lg:block absolute top-4 right-4 text-gray-500 hover:text-orange-600 transition-colors p-2 hover:bg-orange-50 rounded-lg"
+            title={isOpen ? "Fechar menu" : "Abrir menu"}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isOpen ? "M11 19l-7-7 7-7m8 14l-7-7 7-7" : "M13 5l7 7-7 7M5 5l7 7-7 7"} />
+            </svg>
+          </button>
+
+          {/* Botão fechar mobile */}
+          <button
+            onClick={onToggle}
+            className="lg:hidden absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+            title="Fechar menu"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
+
         {/* Menu de navegação */}
         <nav className="space-y-2">
           {menuItems.map((item) => (

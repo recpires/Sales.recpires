@@ -4,12 +4,15 @@ from .models import Product, Order, OrderItem
 
 class ProductSerializer(serializers.ModelSerializer):
     """Serializer for Product model"""
+    color_display = serializers.CharField(source='get_color_display', read_only=True)
+    size_display = serializers.CharField(source='get_size_display', read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'description', 'price', 'stock',
-            'sku', 'is_active', 'created_at', 'updated_at'
+            'id', 'name', 'description', 'price', 'color', 'color_display',
+            'size', 'size_display', 'stock', 'sku', 'is_active',
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
 

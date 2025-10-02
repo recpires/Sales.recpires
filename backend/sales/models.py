@@ -5,6 +5,28 @@ from decimal import Decimal
 
 class Product(models.Model):
     """Model for products/items available for sale"""
+    COLOR_CHOICES = [
+        ('red', 'Vermelho'),
+        ('blue', 'Azul'),
+        ('green', 'Verde'),
+        ('black', 'Preto'),
+        ('white', 'Branco'),
+        ('yellow', 'Amarelo'),
+        ('pink', 'Rosa'),
+        ('purple', 'Roxo'),
+        ('orange', 'Laranja'),
+        ('gray', 'Cinza'),
+    ]
+
+    SIZE_CHOICES = [
+        ('XS', 'Extra Pequeno'),
+        ('S', 'Pequeno'),
+        ('M', 'Médio'),
+        ('L', 'Grande'),
+        ('XL', 'Extra Grande'),
+        ('XXL', 'Extra Extra Grande'),
+    ]
+
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     price = models.DecimalField(
@@ -12,6 +34,8 @@ class Product(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.01'))]
     )
+    color = models.CharField(max_length=20, choices=COLOR_CHOICES, default='black')
+    size = models.CharField(max_length=10, choices=SIZE_CHOICES, default='M')
     stock = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     sku = models.CharField(max_length=100, unique=True)
     is_active = models.BooleanField(default=True)

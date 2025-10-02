@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
 import HomePage from './pages/HomePage';
 import authService from './services/authService';
 
@@ -37,6 +38,14 @@ function App() {
         <Route
           path="/"
           element={isLoggedIn ? <Navigate to="/home" /> : <LoginPage onLogin={handleLogin} />}
+        />
+        <Route
+          path="/login"
+          element={isLoggedIn ? <Navigate to="/home" /> : <LoginPage onLogin={handleLogin} />}
+        />
+        <Route
+          path="/register"
+          element={isLoggedIn ? <Navigate to="/home" /> : <RegisterPage />}
         />
         <Route
           path="/home"
