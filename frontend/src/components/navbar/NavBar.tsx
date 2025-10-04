@@ -21,12 +21,10 @@ const NavBar = () => {
           {/* Logo e título */}
           <div className="flex items-center space-x-4">
             <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-md">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
+              <span className="text-2xl">⚡</span>
             </div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-orange-600 to-orange-500 bg-clip-text text-transparent">
-              Sales IA
+              ThunderShoes
             </h1>
           </div>
 

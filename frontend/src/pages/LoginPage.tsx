@@ -127,12 +127,10 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
           {/* Header com logo */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 rounded-2xl mb-6 shadow-lg shadow-orange-500/30 animate-glow">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
+              <span className="text-4xl">⚡</span>
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-orange-500 to-orange-600 bg-clip-text text-transparent mb-2">
-              Bem vindo ao Sales IA
+              Bem vindo ao ThunderShoes
             </h1>
             <p className="text-gray-600">Entrar na sua conta</p>
           </div>
@@ -276,7 +274,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
         {/* Branding */}
         <div className="mt-8 text-center">
           <p className="text-white/80 text-sm">
-            &copy; 2025 Sales Dashboard. All rights reserved.
+            &copy; 2025 ThunderShoes. Todos os direitos reservados.
           </p>
         </div>
       </div>

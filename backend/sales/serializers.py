@@ -1,20 +1,36 @@
 from rest_framework import serializers
-from .models import Product, Order, OrderItem
+from .models import Product, Order, OrderItem, Store
+
+
+class StoreSerializer(serializers.ModelSerializer):
+    """Serializer for Store model"""
+    owner_username = serializers.CharField(source='owner.username', read_only=True)
+
+    class Meta:
+        model = Store
+        fields = [
+            'id', 'name', 'description', 'phone', 'email',
+            'address', 'is_active', 'owner', 'owner_username',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['owner', 'created_at', 'updated_at']
 
 
 class ProductSerializer(serializers.ModelSerializer):
     """Serializer for Product model"""
     color_display = serializers.CharField(source='get_color_display', read_only=True)
     size_display = serializers.CharField(source='get_size_display', read_only=True)
+    store_name = serializers.CharField(source='store.name', read_only=True)
+    seller_name = serializers.CharField(source='store.owner.username', read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            'id', 'name', 'description', 'price', 'color', 'color_display',
-            'size', 'size_display', 'stock', 'sku', 'is_active',
-            'created_at', 'updated_at'
+            'id', 'store', 'store_name', 'seller_name', 'name', 'description',
+            'price', 'color', 'color_display', 'size', 'size_display', 'stock',
+            'sku', 'is_active', 'image', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'store_name', 'seller_name']
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -39,15 +55,16 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     """Serializer for Order model"""
     items = OrderItemSerializer(many=True, read_only=True)
+    store_name = serializers.CharField(source='store.name', read_only=True)
 
     class Meta:
         model = Order
         fields = [
-            'id', 'customer_name', 'customer_email', 'customer_phone',
-            'shipping_address', 'status', 'total_amount',
+            'id', 'store', 'store_name', 'customer_name', 'customer_email',
+            'customer_phone', 'shipping_address', 'status', 'total_amount',
             'created_at', 'updated_at', 'items'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'total_amount']
+        read_only_fields = ['created_at', 'updated_at', 'total_amount', 'store_name']
 
 
 class OrderCreateSerializer(serializers.ModelSerializer):

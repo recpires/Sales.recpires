@@ -1,12 +1,21 @@
 from django.contrib import admin
-from .models import Product, Order, OrderItem
+from .models import Product, Order, OrderItem, Store
+
+
+@admin.register(Store)
+class StoreAdmin(admin.ModelAdmin):
+    list_display = ['name', 'owner', 'phone', 'email', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'owner__username', 'email']
+    list_editable = ['is_active']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'sku', 'price', 'stock', 'is_active', 'created_at']
-    list_filter = ['is_active', 'created_at']
-    search_fields = ['name', 'sku', 'description']
+    list_display = ['name', 'store', 'sku', 'price', 'stock', 'is_active', 'created_at']
+    list_filter = ['is_active', 'store', 'created_at']
+    search_fields = ['name', 'sku', 'description', 'store__name']
     list_editable = ['price', 'stock', 'is_active']
     readonly_fields = ['created_at', 'updated_at']
 
@@ -20,14 +29,17 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'customer_name', 'customer_email', 'status', 'total_amount', 'created_at']
-    list_filter = ['status', 'created_at']
-    search_fields = ['customer_name', 'customer_email', 'id']
+    list_display = ['id', 'store', 'customer_name', 'customer_email', 'status', 'total_amount', 'created_at']
+    list_filter = ['status', 'store', 'created_at']
+    search_fields = ['customer_name', 'customer_email', 'id', 'store__name']
     list_editable = ['status']
     readonly_fields = ['total_amount', 'created_at', 'updated_at']
     inlines = [OrderItemInline]
 
     fieldsets = (
+        ('Store Information', {
+            'fields': ('store',)
+        }),
         ('Customer Information', {
             'fields': ('customer_name', 'customer_email', 'customer_phone', 'shipping_address')
         }),

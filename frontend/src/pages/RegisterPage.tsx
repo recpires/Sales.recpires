@@ -409,7 +409,7 @@ const RegisterPage = () => {
         {/* Branding */}
         <div className="mt-8 text-center">
           <p className="text-white/80 text-sm">
-            &copy; 2025 Sales Dashboard. All rights reserved.
+            &copy; 2025 ThunderShoes. Todos os direitos reservados.
           </p>
         </div>
       </div>

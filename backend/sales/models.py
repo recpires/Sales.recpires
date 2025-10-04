@@ -1,6 +1,26 @@
 from django.db import models
+from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from decimal import Decimal
+
+
+class Store(models.Model):
+    """Model for seller stores - each admin user has their own store"""
+    owner = models.OneToOneField(User, on_delete=models.CASCADE, related_name='store')
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
+    address = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} - {self.owner.username}"
 
 
 class Product(models.Model):
@@ -27,6 +47,7 @@ class Product(models.Model):
         ('XXL', 'Extra Extra Grande'),
     ]
 
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     price = models.DecimalField(
@@ -39,6 +60,7 @@ class Product(models.Model):
     stock = models.IntegerField(default=0, validators=[MinValueValidator(0)])
     sku = models.CharField(max_length=100, unique=True)
     is_active = models.BooleanField(default=True)
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -59,6 +81,7 @@ class Order(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     customer_name = models.CharField(max_length=200)
     customer_email = models.EmailField()
     customer_phone = models.CharField(max_length=20, blank=True)

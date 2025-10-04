@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import productService from '../services/productService';
-import { Product } from '../types/product';
+import { Product, ProductCreateInput, ProductCreateInputWithoutImage } from '../types/product';
 
 /**
  * Hook to fetch all products
@@ -32,8 +32,23 @@ export const useCreateProduct = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'color_display' | 'size_display'>) =>
+    mutationFn: (data: ProductCreateInput) =>
       productService.createProduct(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+};
+
+/**
+ * Hook to create a new product with image
+ */
+export const useCreateProductWithImage = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ data, image }: { data: ProductCreateInputWithoutImage; image?: File }) =>
+      productService.createProductWithImage(data, image),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },

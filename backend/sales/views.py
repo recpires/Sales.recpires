@@ -1,22 +1,55 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
-from .models import Product, Order, OrderItem
+from .models import Product, Order, OrderItem, Store
 from .serializers import (
     ProductSerializer,
     OrderSerializer,
     OrderCreateSerializer,
-    OrderItemSerializer
+    OrderItemSerializer,
+    StoreSerializer
 )
+
+
+class StoreViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for stores.
+
+    list: Get all stores (or just user's store if admin)
+    create: Create a new store (automatically linked to current user)
+    retrieve: Get a specific store by ID
+    update: Update a store
+    partial_update: Partially update a store
+    destroy: Delete a store
+    """
+    queryset = Store.objects.all()
+    serializer_class = StoreSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Staff users can see all stores.
+        Regular users can only see their own store.
+        """
+        if self.request.user.is_staff:
+            return Store.objects.all()
+
+        # Return user's store if they have one
+        return Store.objects.filter(owner=self.request.user)
+
+    def perform_create(self, serializer):
+        """Automatically set the owner to the current user"""
+        serializer.save(owner=self.request.user)
 
 
 class ProductViewSet(viewsets.ModelViewSet):
     """
     API endpoint for products.
 
-    list: Get all products
-    create: Create a new product
+    list: Get all products (users see all, admins see only their products)
+    create: Create a new product (automatically linked to admin's store)
     retrieve: Get a specific product by ID
     update: Update a product
     partial_update: Partially update a product
@@ -24,15 +57,31 @@ class ProductViewSet(viewsets.ModelViewSet):
     """
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
+        Regular users see all products from all stores.
+        Staff users (admins/sellers) only see products from their own store.
+
         Optionally filter products by query parameters:
         - search: search in name and description
         - is_active: filter by active status
         - min_price, max_price: price range filtering
+        - store: filter by store ID
         """
-        queryset = Product.objects.all()
+        # Base queryset depends on user type
+        if self.request.user.is_staff:
+            # Admins only see their store's products
+            try:
+                store = self.request.user.store
+                queryset = Product.objects.filter(store=store)
+            except Store.DoesNotExist:
+                # Admin doesn't have a store yet
+                queryset = Product.objects.none()
+        else:
+            # Regular users see all products
+            queryset = Product.objects.all()
 
         # Search functionality
         search = self.request.query_params.get('search', None)
@@ -55,7 +104,29 @@ class ProductViewSet(viewsets.ModelViewSet):
         if max_price:
             queryset = queryset.filter(price__lte=max_price)
 
+        # Filter by store (for regular users to filter by specific store)
+        store_id = self.request.query_params.get('store', None)
+        if store_id:
+            queryset = queryset.filter(store_id=store_id)
+
         return queryset
+
+    def perform_create(self, serializer):
+        """Automatically set the store to the current user's store"""
+        if self.request.user.is_staff:
+            try:
+                store = self.request.user.store
+                serializer.save(store=store)
+            except Store.DoesNotExist:
+                raise Response(
+                    {'error': 'You must create a store before adding products'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            raise Response(
+                {'error': 'Only store owners can create products'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
     @action(detail=True, methods=['post'])
     def restock(self, request, pk=None):
@@ -87,7 +158,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     """
     API endpoint for orders.
 
-    list: Get all orders
+    list: Get all orders (admins see only their store's orders)
     create: Create a new order with items
     retrieve: Get a specific order by ID
     update: Update an order
@@ -95,6 +166,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     destroy: Delete an order
     """
     queryset = Order.objects.all()
+    permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         """Use different serializer for creation"""
@@ -104,11 +176,25 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
+        Staff users only see orders from their store.
+        Regular users see all orders.
+
         Optionally filter orders by query parameters:
         - status: filter by order status
         - customer_email: filter by customer email
+        - store: filter by store ID
         """
-        queryset = Order.objects.all()
+        # Base queryset depends on user type
+        if self.request.user.is_staff:
+            # Admins only see their store's orders
+            try:
+                store = self.request.user.store
+                queryset = Order.objects.filter(store=store)
+            except Store.DoesNotExist:
+                queryset = Order.objects.none()
+        else:
+            # Regular users see all orders
+            queryset = Order.objects.all()
 
         # Filter by status
         status_param = self.request.query_params.get('status', None)
@@ -119,6 +205,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         customer_email = self.request.query_params.get('customer_email', None)
         if customer_email:
             queryset = queryset.filter(customer_email__icontains=customer_email)
+
+        # Filter by store (for regular users)
+        store_id = self.request.query_params.get('store', None)
+        if store_id:
+            queryset = queryset.filter(store_id=store_id)
 
         return queryset
 

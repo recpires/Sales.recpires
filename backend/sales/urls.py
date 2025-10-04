@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import ProductViewSet, OrderViewSet, OrderItemViewSet
+from .views import ProductViewSet, OrderViewSet, OrderItemViewSet, StoreViewSet
 from .auth_views import (
     RegisterView,
     LoginView,
@@ -11,6 +11,7 @@ from .auth_views import (
 )
 
 router = DefaultRouter()
+router.register('stores', StoreViewSet, basename='store')
 router.register('products', ProductViewSet, basename='product')
 router.register('orders', OrderViewSet, basename='order')
 router.register('order-items', OrderItemViewSet, basename='orderitem')
