@@ -37,15 +37,15 @@ O `render.yaml` criará automaticamente:
 ```env
 SECRET_KEY=[Gerar usando botão "Generate"]
 DEBUG=False
-RENDER_EXTERNAL_HOSTNAME=[Auto-preenchido]
+RENDER_EXTERNAL_HOSTNAME=sales-backend-fxp4.onrender.com
 DATABASE_URL=[Auto-preenchido]
-CORS_ALLOWED_ORIGINS=https://sales-frontend.onrender.com
+CORS_ALLOWED_ORIGINS=https://sales-frontend-[YOUR-ID].onrender.com
 PYTHON_VERSION=3.12.0
 ```
 
 #### Frontend (`sales-frontend`)
 ```env
-VITE_API_URL=https://sales-backend.onrender.com/api
+VITE_API_URL=https://sales-backend-fxp4.onrender.com/api
 NODE_VERSION=20.18.0
 ```
 
@@ -61,9 +61,9 @@ python manage.py createsuperuser
 
 ### 4️⃣ Acessar a Aplicação
 
-- **Frontend:** `https://sales-frontend.onrender.com`
-- **API:** `https://sales-backend.onrender.com/api/`
-- **Admin:** `https://sales-backend.onrender.com/admin/`
+- **Frontend:** `https://sales-frontend-[YOUR-ID].onrender.com`
+- **API:** `https://sales-backend-fxp4.onrender.com/api/`
+- **Admin:** `https://sales-backend-fxp4.onrender.com/admin/`
 
 ## 🔄 Deploy Automático
 
