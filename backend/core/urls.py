@@ -18,8 +18,57 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
+
+def api_root(request):
+    """Root endpoint with API information"""
+    return JsonResponse({
+        'message': 'Sales Management API',
+        'version': '1.0.0',
+        'status': 'online',
+        'endpoints': {
+            'api': '/api/',
+            'admin': '/admin/',
+            'health': '/health/',
+            'docs': {
+                'products': '/api/products/',
+                'orders': '/api/orders/',
+                'order_items': '/api/order-items/',
+                'stores': '/api/stores/',
+                'auth': {
+                    'register': '/api/auth/register/',
+                    'login': '/api/auth/login/',
+                    'logout': '/api/auth/logout/',
+                    'refresh': '/api/auth/token/refresh/',
+                    'profile': '/api/auth/profile/',
+                    'change_password': '/api/auth/change-password/'
+                }
+            }
+        }
+    })
+
+def health_check(request):
+    """Health check endpoint for monitoring"""
+    from django.db import connection
+    try:
+        # Test database connection
+        connection.ensure_connection()
+        db_status = 'connected'
+    except Exception as e:
+        db_status = f'error: {str(e)}'
+
+    response_data = {
+        'status': 'healthy',
+        'database': db_status,
+        'debug': settings.DEBUG,
+        'allowed_hosts': settings.ALLOWED_HOSTS,
+        'method': request.method
+    }
+    return JsonResponse(response_data)
 
 urlpatterns = [
+    path('', api_root, name='api-root'),
+    path('health/', health_check, name='health-check'),
     path('admin/', admin.site.urls),
     path('api/', include('sales.urls')),
 ]
