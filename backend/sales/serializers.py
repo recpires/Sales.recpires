@@ -30,7 +30,7 @@ class ProductSerializer(serializers.ModelSerializer):
             'price', 'color', 'color_display', 'size', 'size_display', 'stock',
             'sku', 'is_active', 'image', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'store_name', 'seller_name']
+        read_only_fields = ['store', 'created_at', 'updated_at', 'store_name', 'seller_name']
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

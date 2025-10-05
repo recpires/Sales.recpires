@@ -113,20 +113,16 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Automatically set the store to the current user's store"""
-        if self.request.user.is_staff:
-            try:
-                store = self.request.user.store
-                serializer.save(store=store)
-            except Store.DoesNotExist:
-                raise Response(
-                    {'error': 'You must create a store before adding products'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        else:
-            raise Response(
-                {'error': 'Only store owners can create products'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        from rest_framework.exceptions import ValidationError, PermissionDenied
+
+        if not self.request.user.is_staff:
+            raise PermissionDenied('Only store owners can create products')
+
+        try:
+            store = self.request.user.store
+            serializer.save(store=store)
+        except Store.DoesNotExist:
+            raise ValidationError('You must create a store before adding products')
 
     @action(detail=True, methods=['post'])
     def restock(self, request, pk=None):
