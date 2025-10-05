@@ -3,7 +3,7 @@ services:
   - type: web
     name: sales-backend
     runtime: python
-    plan: free
+    plan: starter
     branch: main
     rootDir: backend
     buildCommand: "./build.sh"
@@ -30,7 +30,6 @@ services:
   - type: web
     name: sales-frontend
     runtime: static
-    plan: free
     branch: main
     rootDir: frontend
     buildCommand: "npm install && npm run build"
