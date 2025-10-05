@@ -27,16 +27,14 @@ services:
         sync: false
 
   # React Frontend (Static Site)
-  - type: web
+  - type: static
     name: sales-frontend
     plan: free
     branch: main
     rootDir: frontend
-    buildCommand: "./build.sh"
+    buildCommand: "npm install && npm run build"
     staticPublishPath: ./dist
     envVars:
-      - key: NODE_VERSION
-        value: 20.18.0
       - key: VITE_API_URL
         sync: false
     routes:
