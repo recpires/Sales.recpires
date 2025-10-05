@@ -23,6 +23,7 @@ class StoreViewSet(viewsets.ModelViewSet):
     update: Update a store
     partial_update: Partially update a store
     destroy: Delete a store
+    my_store: Get or create current user's store
     """
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
@@ -41,7 +42,26 @@ class StoreViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Automatically set the owner to the current user"""
+        from rest_framework.exceptions import ValidationError
+
+        # Check if user already has a store
+        if hasattr(self.request.user, 'store'):
+            raise ValidationError('You already have a store')
+
         serializer.save(owner=self.request.user)
+
+    @action(detail=False, methods=['get'])
+    def my_store(self, request):
+        """Get the current user's store"""
+        try:
+            store = request.user.store
+            serializer = self.get_serializer(store)
+            return Response(serializer.data)
+        except Store.DoesNotExist:
+            return Response(
+                {'error': 'You do not have a store yet. Please create one.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 
 class ProductViewSet(viewsets.ModelViewSet):
