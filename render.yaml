@@ -1,0 +1,53 @@
+services:
+  # Django Backend API
+  - type: web
+    name: sales-backend
+    runtime: python
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn core.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: false
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sales-postgres
+          property: connectionString
+      - key: RENDER_EXTERNAL_HOSTNAME
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+  # React Frontend (Static Site)
+  - type: web
+    name: sales-frontend
+    runtime: node
+    plan: free
+    branch: main
+    rootDir: frontend
+    buildCommand: "./build.sh"
+    staticPublishPath: ./dist
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+# PostgreSQL Database
+databases:
+  - name: sales-postgres
+    databaseName: sales_db
+    plan: free
+    user: sales_user
