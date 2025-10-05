@@ -27,9 +27,8 @@ services:
         sync: false
 
   # React Frontend (Static Site)
-  - type: web
+  - type: static
     name: sales-frontend
-    runtime: node
     plan: free
     branch: main
     rootDir: frontend
