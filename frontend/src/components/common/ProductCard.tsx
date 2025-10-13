@@ -1,5 +1,5 @@
-import { FC } from 'react';
-import { Card, Tag, Typography } from 'antd';
+import { FC, useState } from 'react';
+import { Card, Tag, Typography, Modal, Select, InputNumber, Button } from 'antd';
 import { ShoppingCartOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Product } from '../../types/product';
 
@@ -7,7 +7,7 @@ const { Text, Title } = Typography;
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart?: (product: Product) => void;
+  onAddToCart?: (data: { product: Product; variantId?: number | null; quantity?: number; variantSnapshot?: any | null }) => void;
   onDelete?: (product: Product) => void;
   isAdmin?: boolean;
 }
@@ -26,10 +26,27 @@ const colorMap: Record<string, string> = {
 };
 
 export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDelete, isAdmin }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const handleAddToCart = () => {
-    if (onAddToCart) {
-      onAddToCart(product);
+    if (product.variants && product.variants.length > 0) {
+      setIsModalOpen(true);
+      return;
     }
+
+    if (onAddToCart) onAddToCart({ product, variantId: null, quantity: 1, variantSnapshot: null });
+  };
+
+  const confirmAdd = () => {
+    if (onAddToCart) {
+      const variant = product.variants?.find(v => v.id === selectedVariant) ?? null;
+      const variantSnapshot = variant ? { id: variant.id, sku: variant.sku, price: variant.price, color: variant.color ?? null, size: variant.size ?? null, image: variant.image ?? null } : null;
+      onAddToCart({ product, variantId: selectedVariant, quantity, variantSnapshot });
+    }
+    setIsModalOpen(false);
+    setSelectedVariant(null);
+    setQuantity(1);
   };
 
   const handleDelete = () => {
@@ -217,6 +234,19 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
         </div>
       </div>
     </Card>
+    <Modal title="Selecionar variante" open={isModalOpen} onCancel={() => setIsModalOpen(false)} onOk={confirmAdd} okText="Adicionar">
+      <div className="flex flex-col gap-3">
+        <Select placeholder="Selecione uma variante" value={selectedVariant ?? undefined} onChange={(v) => setSelectedVariant(Number(v))}>
+          {product.variants?.map((v) => (
+            <Select.Option key={v.id} value={v.id}>{`${v.size || ''} ${v.color || ''} — SKU: ${v.sku} — ${v.stock} em estoque`}</Select.Option>
+          ))}
+        </Select>
+        <div>
+          <span className="mr-2">Quantidade:</span>
+          <InputNumber min={1} max={999} value={quantity} onChange={(v) => setQuantity(Number(v))} />
+        </div>
+      </div>
+    </Modal>
   );
 };
 

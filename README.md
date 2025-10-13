@@ -352,3 +352,41 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **Built with ❤️ using Django and React**
+
+---
+
+## Quick start (short)
+
+1. Backend
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+2. Frontend
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Read the full architecture and developer guide in `ARCHITECTURE.md`.
+
+## 🖼️ Gerar diagramas automaticamente (GitHub Actions)
+
+Se você não tem Docker localmente ou prefere que o GitHub gere as imagens, há uma Action configurada para renderizar os arquivos PlantUML (`.puml`) e publicar os PNGs como artefato.
+
+Fluxo resumido:
+
+1. Crie uma branch para o PR (ex.: `add/diagrams-pngs`).
+2. Abra um PR; a workflow `Render PlantUML diagrams` rodará automaticamente e fará o upload de um artefato chamado `diagrams` contendo os PNGs gerados.
+3. Baixe o artefato pela interface do GitHub (Actions → execução da workflow → Artifacts) ou usando a CLI `gh` (ex.: `gh run download --name diagrams -D docs/diagrams/generated`).
+4. Extraia/copiar os arquivos PNG para `docs/diagrams/generated/` no repositório local, adicione-os ao Git e faça um commit/push.
+
+Detalhes e comandos passo-a-passo estão em `docs/DIAGRAMS_ACTION_INSTRUCTIONS.md`.

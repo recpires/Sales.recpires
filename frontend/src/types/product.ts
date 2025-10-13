@@ -16,6 +16,18 @@ export interface Product {
   image: string | null;
   created_at: string;
   updated_at: string;
+  variants?: ProductVariant[];
+}
+
+export interface ProductVariant {
+  id: number;
+  sku: string;
+  price: string;
+  color?: string | null;
+  size?: string | null;
+  stock: number;
+  image?: string | null;
+  is_active?: boolean;
 }
 
 export type ColorChoice = 'red' | 'blue' | 'green' | 'black' | 'white' | 'yellow' | 'pink' | 'purple' | 'orange' | 'gray';

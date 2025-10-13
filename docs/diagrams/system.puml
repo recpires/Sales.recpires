@@ -1,0 +1,15 @@
+@startuml
+title Sales.recpires - System Overview
+
+actor "User (Browser)" as user
+node "Frontend (Vite + React)" as frontend
+node "Backend (Django + DRF)" as backend
+database "PostgreSQL" as db
+node "Storage (S3 / local)" as storage
+
+user --> frontend : HTTP (browser)
+frontend --> backend : REST API (Axios)
+backend --> db : SQL queries
+backend --> storage : upload/download images
+
+@enduml

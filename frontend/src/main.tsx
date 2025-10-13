@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App'
+import { CartProvider } from './context/CartContext'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,8 +23,10 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <CartProvider>
+          <App />
+        </CartProvider>
+      </QueryClientProvider>
   </StrictMode>,
 )

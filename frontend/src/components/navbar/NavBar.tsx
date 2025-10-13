@@ -43,7 +43,7 @@ const NavBar = () => {
               {(user?.first_name?.[0] || user?.username?.[0] || 'U').toUpperCase()}
             </div>
 
-            {/* Botão de logout */}
+            {/* Botões */}
             <button
               onClick={handleLogout}
               className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
@@ -52,6 +52,12 @@ const NavBar = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
               <span className="font-medium">Logout</span>
+            </button>
+            <button
+              onClick={() => navigate('/checkout')}
+              className="ml-2 hidden md:inline-flex items-center space-x-2 px-4 py-2 border border-orange-500 text-orange-600 rounded-xl hover:bg-orange-50"
+            >
+              <span>Checkout</span>
             </button>
           </div>
         </div>

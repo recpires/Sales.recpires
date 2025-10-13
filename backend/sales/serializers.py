@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Product, Order, OrderItem, Store
+from .models import Product, Order, OrderItem, Store, ProductVariant
+from django.db import transaction
+from rest_framework.exceptions import ValidationError
 
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -16,6 +18,13 @@ class StoreSerializer(serializers.ModelSerializer):
         read_only_fields = ['owner', 'created_at', 'updated_at']
 
 
+class ProductVariantSerializer(serializers.ModelSerializer):
+    """Serializer for product variants"""
+    class Meta:
+        model = ProductVariant
+        fields = ['id', 'sku', 'price', 'color', 'size', 'stock', 'image', 'is_active']
+
+
 class ProductSerializer(serializers.ModelSerializer):
     """Serializer for Product model"""
     color_display = serializers.CharField(source='get_color_display', read_only=True)
@@ -23,14 +32,19 @@ class ProductSerializer(serializers.ModelSerializer):
     store_name = serializers.CharField(source='store.name', read_only=True)
     seller_name = serializers.CharField(source='store.owner.username', read_only=True)
 
+    variants = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
         fields = [
             'id', 'store', 'store_name', 'seller_name', 'name', 'description',
             'price', 'color', 'color_display', 'size', 'size_display', 'stock',
-            'sku', 'is_active', 'image', 'created_at', 'updated_at'
+            'sku', 'is_active', 'image', 'created_at', 'updated_at', 'variants'
         ]
         read_only_fields = ['store', 'created_at', 'updated_at', 'store_name', 'seller_name']
+
+    def get_variants(self, obj):
+        return ProductVariantSerializer(obj.variants.all(), many=True).data
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -42,11 +56,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
         read_only=True,
         source='get_subtotal'
     )
+    variant = serializers.PrimaryKeyRelatedField(queryset=ProductVariant.objects.all(), allow_null=True, required=False)
 
     class Meta:
         model = OrderItem
         fields = [
-            'id', 'product', 'product_name', 'quantity',
+            'id', 'product', 'variant', 'product_name', 'quantity',
             'unit_price', 'subtotal'
         ]
         read_only_fields = ['unit_price', 'subtotal']
@@ -80,10 +95,61 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
-        order = Order.objects.create(**validated_data)
 
-        for item_data in items_data:
-            OrderItem.objects.create(order=order, **item_data)
+        # Create order and items inside a transaction to safely update stock
+        with transaction.atomic():
+            order = Order.objects.create(**validated_data)
 
-        order.calculate_total()
-        return order
+            for item_data in items_data:
+                variant = item_data.get('variant', None)
+                product = item_data.get('product')
+                quantity = item_data.get('quantity')
+
+                # Resolve variant if provided as PK or object
+                if variant:
+                    if isinstance(variant, int):
+                        try:
+                            variant_obj = ProductVariant.objects.select_for_update().get(pk=variant)
+                        except ProductVariant.DoesNotExist:
+                            raise ValidationError(f"Variant with id {variant} does not exist")
+                    else:
+                        try:
+                            variant_obj = ProductVariant.objects.select_for_update().get(pk=variant.id)
+                        except ProductVariant.DoesNotExist:
+                            raise ValidationError(f"Variant with id {variant.id} does not exist")
+
+                    if variant_obj.stock < quantity:
+                        raise ValidationError({
+                            'stock': f"Insufficient stock for variant {variant_obj.sku}",
+                            'available': variant_obj.stock,
+                            'requested': quantity,
+                        })
+
+                    # decrement stock
+                    variant_obj.stock -= quantity
+                    variant_obj.save()
+
+                    unit_price = variant_obj.price
+                    OrderItem.objects.create(order=order, product=product, variant=variant_obj, quantity=quantity, unit_price=unit_price)
+                else:
+                    # no variant: operate on product stock
+                    try:
+                        product_obj = Product.objects.select_for_update().get(pk=product.id)
+                    except Product.DoesNotExist:
+                        raise ValidationError(f"Product with id {product.id} does not exist")
+
+                    if product_obj.stock < quantity:
+                        raise ValidationError({
+                            'stock': f"Insufficient stock for product {product_obj.name}",
+                            'available': product_obj.stock,
+                            'requested': quantity,
+                        })
+
+                    product_obj.stock -= quantity
+                    product_obj.save()
+
+                    unit_price = product_obj.price
+                    OrderItem.objects.create(order=order, product=product_obj, quantity=quantity, unit_price=unit_price)
+
+            order.calculate_total()
+            return order

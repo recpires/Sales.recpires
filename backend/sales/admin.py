@@ -1,5 +1,7 @@
-from django.contrib import admin
-from .models import Product, Order, OrderItem, Store
+from django.contrib import admin, messages
+from django.db import transaction
+from django.db.utils import IntegrityError
+from .models import Product, Order, OrderItem, Store, ProductVariant
 
 
 @admin.register(Store)
@@ -18,12 +20,56 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ['name', 'sku', 'description', 'store__name']
     list_editable = ['price', 'stock', 'is_active']
     readonly_fields = ['created_at', 'updated_at']
+    actions = ['create_variants_for_selected']
+
+    def create_variants_for_selected(self, request, queryset):
+        """Admin action: create a default variant for each selected product that has no variants."""
+        created = 0
+        skipped = 0
+        failed = 0
+
+        for p in queryset:
+            if p.variants.exists():
+                skipped += 1
+                continue
+
+            sku = p.sku if p.sku else f"PROD-{p.id}"
+            if ProductVariant.objects.filter(sku=sku).exists():
+                sku = f"{sku}-{p.id}"
+
+            try:
+                with transaction.atomic():
+                    ProductVariant.objects.create(
+                        product=p,
+                        sku=sku,
+                        price=p.price,
+                        color=p.color if p.color else None,
+                        size=p.size if p.size else None,
+                        stock=p.stock,
+                        image=p.image,
+                        is_active=p.is_active,
+                    )
+                    created += 1
+            except IntegrityError:
+                failed += 1
+
+        msgs = []
+        if created:
+            msgs.append(f"Created {created} variants.")
+        if skipped:
+            msgs.append(f"Skipped {skipped} products that already had variants.")
+        if failed:
+            msgs.append(f"Failed to create {failed} variants due to errors.")
+
+        messages.info(request, ' '.join(msgs) if msgs else 'No products processed.')
+
+    create_variants_for_selected.short_description = 'Create variants for selected products'
 
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 1
-    fields = ['product', 'quantity', 'unit_price']
+    fields = ['product', 'variant', 'quantity', 'unit_price']
     readonly_fields = ['unit_price']
 
 
@@ -54,11 +100,19 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ['order', 'product', 'quantity', 'unit_price', 'get_subtotal']
+    list_display = ['order', 'product', 'variant', 'quantity', 'unit_price', 'get_subtotal']
     list_filter = ['order__status']
-    search_fields = ['order__id', 'product__name']
+    search_fields = ['order__id', 'product__name', 'variant__sku']
     readonly_fields = ['unit_price']
 
     def get_subtotal(self, obj):
         return f"${obj.get_subtotal():.2f}"
     get_subtotal.short_description = 'Subtotal'
+
+
+@admin.register(ProductVariant)
+class ProductVariantAdmin(admin.ModelAdmin):
+    list_display = ['product', 'sku', 'price', 'stock', 'is_active', 'created_at']
+    list_filter = ['is_active', 'product']
+    search_fields = ['sku', 'product__name']
+    readonly_fields = ['created_at', 'updated_at']

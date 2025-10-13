@@ -8,6 +8,7 @@ import SalesPage from './pages/SalesPage';
 import ClientsPage from './pages/ClientsPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
+import CheckoutPage from './pages/CheckoutPage';
 import authService from './services/authService';
 
 function App() {
@@ -72,6 +73,10 @@ function App() {
           <Route
             path="/settings"
             element={isLoggedIn ? <SettingsPage /> : <Navigate to="/" />}
+          />
+          <Route
+            path="/checkout"
+            element={isLoggedIn ? <CheckoutPage /> : <Navigate to="/" />}
           />
         </Routes>
       </BrowserRouter>

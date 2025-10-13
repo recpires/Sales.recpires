@@ -229,6 +229,22 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return queryset
 
+    def create(self, request, *args, **kwargs):
+        """Wrap creation to return structured 400 responses when validation fails (e.g., insufficient stock)."""
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            order = serializer.save()
+            out_serializer = OrderSerializer(order)
+            return Response(out_serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as exc:
+            # Prefer DRF ValidationError to return structured errors
+            from rest_framework.exceptions import ValidationError as DRFValidationError
+            if isinstance(exc, DRFValidationError):
+                return Response({'errors': exc.detail}, status=status.HTTP_400_BAD_REQUEST)
+            # Fallback: return generic message
+            return Response({'errors': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=True, methods=['post'])
     def update_status(self, request, pk=None):
         """Update order status"""
