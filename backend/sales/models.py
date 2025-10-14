@@ -58,7 +58,8 @@ class Product(models.Model):
     color = models.CharField(max_length=20, choices=COLOR_CHOICES, default='black')
     size = models.CharField(max_length=10, choices=SIZE_CHOICES, default='M')
     stock = models.IntegerField(default=0, validators=[MinValueValidator(0)])
-    sku = models.CharField(max_length=100, unique=True)
+    # sku moved to ProductVariant to support multiple variants per product
+    sku = models.CharField(max_length=100, unique=True, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     image = models.ImageField(upload_to='products/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -69,6 +70,37 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ProductVariant(models.Model):
+    """Variants for a product (different size/color/price/sku/stock)
+
+    Each product can have multiple variants. Variant-level SKU and stock
+    are stored here. If a product has no variants, the product-level fields
+    (price/stock/sku) can still be used.
+    """
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
+    sku = models.CharField(max_length=100, unique=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    color = models.CharField(max_length=20, choices=Product.COLOR_CHOICES, null=True, blank=True)
+    size = models.CharField(max_length=10, choices=Product.SIZE_CHOICES, null=True, blank=True)
+    stock = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    image = models.ImageField(upload_to='products/variants/', blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        attrs = []
+        if self.color:
+            attrs.append(self.color)
+        if self.size:
+            attrs.append(self.size)
+        attrs_str = ' / '.join(attrs) if attrs else 'default'
+        return f"{self.product.name} - {attrs_str} ({self.sku})"
 
 
 class Order(models.Model):
@@ -125,6 +157,13 @@ class OrderItem(models.Model):
         on_delete=models.PROTECT,
         related_name='order_items'
     )
+    variant = models.ForeignKey(
+        ProductVariant,
+        on_delete=models.PROTECT,
+        related_name='order_items',
+        null=True,
+        blank=True,
+    )
     quantity = models.IntegerField(validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
@@ -137,6 +176,10 @@ class OrderItem(models.Model):
 
     def save(self, *args, **kwargs):
         """Auto-set unit price from product if not provided"""
+        # Prefer variant price when variant is present
         if not self.unit_price:
-            self.unit_price = self.product.price
+            if getattr(self, 'variant') and self.variant:
+                self.unit_price = self.variant.price
+            else:
+                self.unit_price = self.product.price
         super().save(*args, **kwargs)

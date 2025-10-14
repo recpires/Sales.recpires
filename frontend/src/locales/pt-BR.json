@@ -1,0 +1,77 @@
+{
+  "login": {
+    "title": "Bem vindo ao ThunderShoes",
+    "subtitle": "Entrar na sua conta",
+    "email": "Email",
+    "password": "Password",
+    "enter": "Entrar",
+    "connecting": "conectando...",
+    "remember": "me lembrar",
+    "forgot": "Esqueceu a senha?",
+    "no_account": "Não tem uma conta?",
+    "signup": "Cadastrar-se"
+  },
+  "register": {
+    "title": "Criar Conta",
+    "subtitle": "Preencha os dados para se cadastrar",
+    "username_label": "Nome de Usuário *",
+    "username_placeholder": "usuario123",
+    "email_label": "Email *",
+    "email_placeholder": "seu@email.com",
+    "name_label": "Nome",
+    "surname_label": "Sobrenome",
+    "password_label": "Senha *",
+    "password_placeholder": "••••••••",
+    "password_confirm_label": "Confirmar Senha *",
+    "creating": "Criando conta...",
+    "create_account": "Cadastrar",
+    "have_account": "Já tem uma conta?",
+    "sign_in": "Entrar",
+    "validation": {
+      "username_required": "Nome de usuário é obrigatório",
+      "username_min": "Nome de usuário deve ter no mínimo 3 caracteres",
+      "email_required": "Email é obrigatório",
+      "email_invalid": "Formato de email inválido",
+      "password_required": "Senha é obrigatória",
+      "password_min": "Senha deve ter no mínimo 6 caracteres",
+      "password2_required": "Confirmação de senha é obrigatória",
+      "password_mismatch": "As senhas não coincidem"
+    },
+    "messages": {
+      "create_error": "Erro ao criar conta. Por favor, tente novamente.",
+      "server_unavailable": "Não foi possível conectar ao servidor. Por favor, tente novamente mais tarde.",
+      "unexpected": "Ocorreu um erro inesperado."
+    },
+    "copyright": "© 2025 ThunderShoes. Todos os direitos reservados."
+  },
+  "checkout": {
+    "title": "Checkout",
+    "email_label": "Email",
+    "place_order": "Enviar pedido",
+    "order_created": "Pedido criado: {{id}}",
+    "cart_empty": "Seu carrinho está vazio",
+    "quantity": "Quantidade",
+    "remove": "Remover"
+  },
+  "product": {
+    "add_to_cart": "Adicionar ao Carrinho",
+    "delete": "Excluir",
+    "free_shipping": "FRETE GRÁTIS",
+    "low_stock_warning": "⚠️ ÚLTIMAS UNIDADES",
+    "new": "NOVO",
+    "save_amount": "ECONOMIZE R$ {{amount}}",
+    "sku": "SKU",
+    "available": "Disponível",
+    "in_stock": "em estoque",
+    "sold_out": "Esgotado",
+    "select_variant": "Selecionar variante",
+    "add": "Adicionar",
+    "select_variant_placeholder": "Selecione uma variante",
+    "quantity": "Quantidade"
+  },
+  "errors": {
+    "server_unavailable": "Não foi possível conectar ao servidor. Por favor, tente novamente mais tarde.",
+    "unexpected": "Ocorreu um erro inesperado.",
+    "invalid_credentials": "Credenciais inválidas. Por favor, tente novamente."
+  }
+}

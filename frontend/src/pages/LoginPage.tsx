@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/common';
 import authService from '../services/authService';
@@ -7,27 +8,30 @@ interface LoginPageProps {
   onLogin?: (email: string, password: string) => void;
 }
 
+type LoginErrors = { email?: string; password?: string; general?: string };
+
 const LoginPage = ({ onLogin }: LoginPageProps) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
+  const [errors, setErrors] = useState<LoginErrors>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { t } = useTranslation();
 
   const validateForm = () => {
     const newErrors: { email?: string; password?: string } = {};
 
     if (!email) {
-      newErrors.email = 'Email is required';
+      newErrors.email = t('login.email') + ' é obrigatório';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'invalido formato de email';
+      newErrors.email = 'Formato de email inválido';
     }
 
     if (!password) {
-      newErrors.password = 'Password é obrigatório';
+      newErrors.password = t('login.password') + ' é obrigatório';
     } else if (password.length < 6) {
-      newErrors.password = 'Password deve ter no mínimo 6 caracteres';
+      newErrors.password = t('login.password') + ' deve ter no mínimo 6 caracteres';
     }
 
     setErrors(newErrors);
@@ -55,7 +59,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
       // Redirect to home page
       navigate('/home');
     } catch (error: any) {
-      console.error('Login error:', error);
+  console.error('Login error:', error);
 
       // Handle different error types
       if (error.response?.data) {
@@ -63,24 +67,24 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
         // Check for field-specific errors
         if (errorData.email) {
-          setErrors((prev) => ({ ...prev, email: errorData.email[0] }));
+          setErrors((prev: LoginErrors) => ({ ...prev, email: errorData.email[0] }));
         }
         if (errorData.password) {
-          setErrors((prev) => ({ ...prev, password: errorData.password[0] }));
+          setErrors((prev: LoginErrors) => ({ ...prev, password: errorData.password[0] }));
         }
 
         // Check for non-field errors or general error message
         if (errorData.non_field_errors) {
-          setErrors((prev) => ({ ...prev, general: errorData.non_field_errors[0] }));
+          setErrors((prev: LoginErrors) => ({ ...prev, general: errorData.non_field_errors[0] }));
         } else if (errorData.detail) {
-          setErrors((prev) => ({ ...prev, general: errorData.detail }));
+          setErrors((prev: LoginErrors) => ({ ...prev, general: errorData.detail }));
         } else if (!errorData.email && !errorData.password) {
-          setErrors((prev) => ({ ...prev, general: 'Credenciais inválidas. Por favor, tente novamente.' }));
+          setErrors((prev: LoginErrors) => ({ ...prev, general: t('errors.invalid_credentials') }));
         }
       } else if (error.request) {
-        setErrors((prev) => ({ ...prev, general: 'Não foi possível conectar ao servidor. Por favor, tente novamente mais tarde.' }));
+        setErrors((prev: LoginErrors) => ({ ...prev, general: t('errors.server_unavailable') }));
       } else {
-        setErrors((prev) => ({ ...prev, general: 'Ocorreu um erro inesperado.' }));
+        setErrors((prev: LoginErrors) => ({ ...prev, general: t('errors.unexpected') }));
       }
     } finally {
       setIsLoading(false);
@@ -149,9 +153,9 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
 
             {/* Email Field */}
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email
-              </label>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  {t('login.email')}
+                </label>
               <div className="relative">
                 <input
                   id="email"
@@ -163,7 +167,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                   }}
                   disabled={isLoading}
                   className="w-full px-4 py-3 bg-white border border-gray-300 rounded-2xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all duration-300 hover:border-orange-300"
-                  placeholder="your@email.com"
+                  placeholder="seu@email.com"
                 />
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-orange-500/10 to-orange-400/10 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
               </div>
@@ -180,7 +184,7 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
             {/* Password Field */}
             <div className="space-y-2">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
+                {t('login.password')}
               </label>
               <div className="relative">
                 <input
@@ -231,10 +235,10 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                   type="checkbox"
                   className="w-4 h-4 text-orange-500 bg-white border-gray-300 rounded focus:ring-orange-500 focus:ring-offset-0"
                 />
-                <span className="ml-2 text-gray-600 group-hover:text-orange-600 transition-colors duration-200">me lembrar</span>
+                <span className="ml-2 text-gray-600 group-hover:text-orange-600 transition-colors duration-200">{t('login.remember')}</span>
               </label>
               <a href="#" className="text-orange-600 hover:text-orange-700 font-medium transition-colors duration-200 hover:underline">
-                Esqueceu a senha?
+                {t('login.forgot')}
               </a>
             </div>
 
@@ -252,10 +256,10 @@ const LoginPage = ({ onLogin }: LoginPageProps) => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  conectando...
+                  {t('login.connecting')}
                 </span>
               ) : (
-                'Entrar'
+                t('login.enter')
               )}
             </Button>
           </form>

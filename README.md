@@ -1,69 +1,9 @@
-# Sales Management System
 
-A full-stack sales management application built with Django REST Framework and React TypeScript, featuring JWT authentication, product/order management, and a modern component-based UI architecture.
+# README (Português)
 
-## 📋 Table of Contents
+Este repositório contém a documentação principal em português em `README.pt.md`.
 
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Running the Application](#running-the-application)
-- [Project Structure](#project-structure)
-- [API Documentation](#api-documentation)
-- [Database Management](#database-management)
-- [Development](#development)
-- [License](#license)
-
-## ✨ Features
-
-- **User Authentication**
-  - JWT-based authentication with token refresh
-  - User registration and login
-  - Password change functionality
-  - Automatic token rotation with blacklisting
-
-- **Product Management**
-  - Create, read, update, and delete products
-  - SKU tracking and inventory management
-  - Product status control (active/inactive)
-
-- **Order Management**
-  - Complete order lifecycle management
-  - Order status tracking (pending, processing, shipped, delivered, cancelled)
-  - Customer information management
-  - Order items with quantity and pricing
-
-- **Modern UI**
-  - Responsive design with Tailwind CSS
-  - Component-based architecture
-  - Protected routes with automatic redirection
-  - Real-time authentication state management
-
-## 🛠️ Technology Stack
-
-### Backend
-- **Django 5.2.6** - Web framework
-- **Django REST Framework 3.16.1** - RESTful API
-- **PostgreSQL** - Database
-- **djangorestframework-simplejwt** - JWT authentication
-- **python-decouple** - Environment variable management
-- **Docker & Docker Compose** - Containerization
-
-### Frontend
-- **React 19.1.1** - UI library
-- **TypeScript** - Type safety
-- **Vite 7.1.7** - Build tool
-- **React Router DOM** - Navigation
-- **Axios** - HTTP client with interceptors
-- **Tailwind CSS** - Styling
-
-## 📦 Prerequisites
-
-- Python 3.8+
-- Node.js 16+
-- Docker & Docker Compose
-- Git
+Se preferir a versão em inglês, consulte `README.en.md`.
 
 ## 🚀 Installation
 
@@ -352,3 +292,41 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **Built with ❤️ using Django and React**
+
+---
+
+## Quick start (short)
+
+1. Backend
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+2. Frontend
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Read the full architecture and developer guide in `ARCHITECTURE.md`.
+
+## 🖼️ Gerar diagramas automaticamente (GitHub Actions)
+
+Se você não tem Docker localmente ou prefere que o GitHub gere as imagens, há uma Action configurada para renderizar os arquivos PlantUML (`.puml`) e publicar os PNGs como artefato.
+
+Fluxo resumido:
+
+1. Crie uma branch para o PR (ex.: `add/diagrams-pngs`).
+2. Abra um PR; a workflow `Render PlantUML diagrams` rodará automaticamente e fará o upload de um artefato chamado `diagrams` contendo os PNGs gerados.
+3. Baixe o artefato pela interface do GitHub (Actions → execução da workflow → Artifacts) ou usando a CLI `gh` (ex.: `gh run download --name diagrams -D docs/diagrams/generated`).
+4. Extraia/copiar os arquivos PNG para `docs/diagrams/generated/` no repositório local, adicione-os ao Git e faça um commit/push.
+
+Detalhes e comandos passo-a-passo estão em `docs/DIAGRAMS_ACTION_INSTRUCTIONS.md`.

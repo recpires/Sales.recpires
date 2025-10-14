@@ -1,0 +1,32 @@
+@startuml
+title Sales.recpires - Component Diagram
+
+package Frontend {
+  [App] as App
+  [ProductCard] as ProductCard
+  [CheckoutPage] as CheckoutPage
+  [CartContext] as CartContext
+  [ApiService (Axios)] as ApiService
+}
+
+package Backend {
+  [Product] as ProductModel
+  [ProductVariant] as VariantModel
+  [Order] as OrderModel
+  [OrderItem] as OrderItemModel
+  [OrderCreateSerializer] as OrderCreateSerializer
+  [OrderViewSet] as OrderViewSet
+}
+
+App --> ProductCard
+App --> CheckoutPage
+ProductCard --> CartContext
+CheckoutPage --> CartContext
+CheckoutPage --> ApiService
+ApiService --> OrderViewSet
+OrderViewSet --> OrderCreateSerializer
+OrderCreateSerializer --> VariantModel
+OrderCreateSerializer --> OrderItemModel
+OrderViewSet --> ProductModel
+
+@enduml

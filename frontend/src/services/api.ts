@@ -63,4 +63,19 @@ api.interceptors.response.use(
   }
 );
 
+// Normalize API error payloads for easier handling in UI
+api.interceptors.response.use(undefined, (error) => {
+  if (error.response && error.response.data) {
+    const data = error.response.data;
+    // Backend uses { errors: ... } for validation errors
+    if (data.errors) {
+      error.apiErrors = data.errors;
+    } else if (data.detail) {
+      // DRF detail messages
+      error.apiErrors = { detail: data.detail };
+    }
+  }
+  return Promise.reject(error);
+});
+
 export default api;

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Spin, Empty, Modal, Button, message, Input } from 'antd';
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { NavBar } from '../components/navbar';
 import { Aside } from '../components/aside';
+import { useCart } from '../context/CartContext';
 import authService from '../services/authService';
 import { useProducts, useCreateProductWithImage, useDeleteProduct } from '../hooks/useProducts';
 import { ProductCard } from '../components/common/ProductCard';
@@ -25,7 +26,7 @@ const HomePage = () => {
   const products = allProducts.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    (product.sku ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const createProductMutation = useCreateProductWithImage();
@@ -35,9 +36,19 @@ const HomePage = () => {
     setIsAsideOpen(!isAsideOpen);
   };
 
-  const handleAddToCart = (product: Product) => {
-    console.log('Add to cart:', product);
-    // TODO: Implementar lógica de carrinho
+  const { dispatch } = useCart();
+
+  const handleAddToCart = (data: { product: Product; variantId?: number | null; quantity?: number; variantSnapshot?: any | null }) => {
+    // adiciona o item (produto + variante opcional) ao carrinho
+    try {
+      const product = data.product;
+      const variantId = data.variantId ?? null;
+      const quantity = data.quantity ?? 1;
+  dispatch({ type: 'ADD_ITEM', payload: { productId: product.id, variantId, quantity, product, variantSnapshot: (data as any).variantSnapshot ?? null } });
+      message.success('Produto adicionado ao carrinho');
+    } catch (err) {
+      message.error('Erro ao adicionar ao carrinho');
+    }
   };
 
   const handleCreateProduct = async (data: any, image?: File) => {
@@ -105,12 +116,12 @@ const HomePage = () => {
                   Novo Produto
                 </Button>
               </div>
-              <Input
+                <Input
                 size="large"
                 placeholder="Buscar produtos por nome, descrição ou SKU..."
                 prefix={<SearchOutlined className="text-gray-400" />}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                 className="rounded-lg"
                 allowClear
               />
@@ -137,7 +148,7 @@ const HomePage = () => {
                   placeholder="Buscar produtos por nome, descrição ou SKU..."
                   prefix={<SearchOutlined className="text-gray-400" />}
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                   className="rounded-lg shadow-md"
                   allowClear
                 />

@@ -1,0 +1,23 @@
+@startuml
+title Order creation flow
+
+actor Customer
+participant Frontend
+participant Backend
+participant DB
+
+Customer -> Frontend: Add items (product/variant) to cart
+Frontend -> Backend: POST /api/orders/ {items, customer...}
+Backend -> DB: BEGIN TRANSACTION
+Backend -> DB: SELECT FOR UPDATE variant rows
+alt stock sufficient
+  Backend -> DB: UPDATE variant SET stock = stock - quantity
+  Backend -> DB: INSERT order, order_items
+  Backend -> DB: COMMIT
+  Backend --> Frontend: 201 Created (order id)
+else insufficient stock
+  Backend -> DB: ROLLBACK
+  Backend --> Frontend: 400 ValidationError {stock: ...}
+end
+
+@enduml

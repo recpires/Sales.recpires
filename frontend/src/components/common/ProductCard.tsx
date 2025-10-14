@@ -1,5 +1,6 @@
-import { FC } from 'react';
-import { Card, Tag, Typography } from 'antd';
+import { FC, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Card, Tag, Typography, Modal, Select, InputNumber, Button } from 'antd';
 import { ShoppingCartOutlined, DeleteOutlined } from '@ant-design/icons';
 import { Product } from '../../types/product';
 
@@ -7,7 +8,7 @@ const { Text, Title } = Typography;
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart?: (product: Product) => void;
+  onAddToCart?: (data: { product: Product; variantId?: number | null; quantity?: number; variantSnapshot?: any | null }) => void;
   onDelete?: (product: Product) => void;
   isAdmin?: boolean;
 }
@@ -26,10 +27,28 @@ const colorMap: Record<string, string> = {
 };
 
 export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDelete, isAdmin }) => {
+  const { t } = useTranslation();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
+  const [quantity, setQuantity] = useState(1);
   const handleAddToCart = () => {
-    if (onAddToCart) {
-      onAddToCart(product);
+    if (product.variants && product.variants.length > 0) {
+      setIsModalOpen(true);
+      return;
     }
+
+    if (onAddToCart) onAddToCart({ product, variantId: null, quantity: 1, variantSnapshot: null });
+  };
+
+  const confirmAdd = () => {
+    if (onAddToCart) {
+      const variant = product.variants?.find(v => v.id === selectedVariant) ?? null;
+      const variantSnapshot = variant ? { id: variant.id, sku: variant.sku, price: variant.price, color: variant.color ?? null, size: variant.size ?? null, image: variant.image ?? null } : null;
+      onAddToCart({ product, variantId: selectedVariant, quantity, variantSnapshot });
+    }
+    setIsModalOpen(false);
+    setSelectedVariant(null);
+    setQuantity(1);
   };
 
   const handleDelete = () => {
@@ -42,26 +61,26 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
 
   if (!isAdmin && product.stock > 0) {
     actions.push(
-      <div
+        <div
         key="add-to-cart"
         onClick={handleAddToCart}
         className="flex items-center justify-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
       >
         <ShoppingCartOutlined />
-        <span>Adicionar ao Carrinho</span>
+        <span>{t('product.add_to_cart')}</span>
       </div>
     );
   }
 
   if (isAdmin) {
     actions.push(
-      <div
+        <div
         key="delete"
         onClick={handleDelete}
         className="flex items-center justify-center gap-2 cursor-pointer bg-red-600 text-black hover:text-white transition-colors rounded-full px-4 py-2 shadow-md hover:shadow-lg"
       >
         <DeleteOutlined />
-        <span>Excluir</span>
+        <span>{t('product.delete')}</span>
       </div>
     );
   }
@@ -101,7 +120,7 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
               {/* Badge de frete grátis */}
               {product.stock > 10 && (
                 <div className="absolute top-10 left-0 bg-blue-600 text-white px-2 py-0.5 text-xs font-semibold shadow-md">
-                  FRETE GRÁTIS
+                  {t('product.free_shipping')}
                 </div>
               )}
             </>
@@ -110,14 +129,14 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
           {/* Label de estoque baixo */}
           {!isAdmin && product.stock > 0 && product.stock <= 5 && (
             <div className="absolute bottom-2 left-2 bg-yellow-500 text-white px-2 py-1 text-xs font-bold rounded shadow-md animate-pulse">
-              ⚠️ ÚLTIMAS UNIDADES
+              {t('product.low_stock_warning')}
             </div>
           )}
 
           {/* Label de novidade */}
           {!isAdmin && product.stock > 15 && (
             <div className="absolute top-0 right-0 bg-purple-600 text-white px-3 py-1 text-xs font-bold shadow-lg rounded-bl-lg">
-              NOVO
+              {t('product.new')}
             </div>
           )}
         </div>
@@ -169,12 +188,12 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
                   </Text>
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                  <div className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded text-xs font-bold">
-                    ECONOMIZE R$ {(originalPrice - discountedPrice).toFixed(2)}
+                    <div className="bg-orange-100 text-orange-600 px-2 py-0.5 rounded text-xs font-bold">
+                    {t('product.save_amount', { amount: (originalPrice - discountedPrice).toFixed(2) })}
                   </div>
                 </div>
                 <Text type="secondary" className="text-xs mt-1">
-                  SKU: {product.sku}
+                  {t('product.sku')}: {product.sku}
                 </Text>
               </>
             ) : (
@@ -195,7 +214,7 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
                 {!isAdmin ? (
                   <>
                     <div className="bg-green-50 text-green-700 px-2 py-1 rounded text-xs font-semibold border border-green-200">
-                      ✓ Disponível
+                      ✓ {t('product.available')}
                     </div>
                     <Text type="secondary" className="text-xs mt-1">
                       {product.stock} em estoque
@@ -203,7 +222,7 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
                   </>
                 ) : (
                   <>
-                    <Tag color="success">Em estoque</Tag>
+                    <Tag color="success">{t('product.in_stock')}</Tag>
                     <Text type="secondary" className="text-xs">
                       {product.stock} disponíveis
                     </Text>
@@ -211,12 +230,25 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
                 )}
               </>
             ) : (
-              <Tag color="error">Esgotado</Tag>
+              <Tag color="error">{t('product.sold_out')}</Tag>
             )}
           </div>
         </div>
       </div>
     </Card>
+    <Modal title={t('product.select_variant')} open={isModalOpen} onCancel={() => setIsModalOpen(false)} onOk={confirmAdd} okText={t('product.add') as any}>
+      <div className="flex flex-col gap-3">
+        <Select placeholder={t('product.select_variant_placeholder')} value={selectedVariant ?? undefined} onChange={(v) => setSelectedVariant(Number(v))}>
+          {product.variants?.map((v) => (
+            <Select.Option key={v.id} value={v.id}>{`${v.size || ''} ${v.color || ''} — ${t('product.sku')}: ${v.sku} — ${v.stock} ${t('product.in_stock').toLowerCase()}`}</Select.Option>
+          ))}
+        </Select>
+        <div>
+          <span className="mr-2">{t('product.quantity')}:</span>
+          <InputNumber min={1} max={999} value={quantity} onChange={(v) => setQuantity(Number(v))} />
+        </div>
+      </div>
+    </Modal>
   );
 };
 

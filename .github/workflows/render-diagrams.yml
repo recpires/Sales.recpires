@@ -1,0 +1,32 @@
+name: Render PlantUML diagrams
+
+on:
+  push:
+    paths:
+      - 'docs/diagrams/**'
+  pull_request:
+    paths:
+      - 'docs/diagrams/**'
+  workflow_dispatch: {}
+
+jobs:
+  render:
+    name: Render diagrams
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure output directory
+        run: mkdir -p docs/diagrams/generated
+
+      - name: Render PlantUML diagrams (Docker)
+        run: |
+          # Use the official plantuml Docker image to render all .puml files to PNG
+          docker run --rm -v "${{ github.workspace }}":/workspace plantuml/plantuml:latest -tpng docs/diagrams/*.puml -o docs/diagrams/generated
+
+      - name: Upload generated diagrams
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagrams
+          path: docs/diagrams/generated

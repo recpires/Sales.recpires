@@ -1,0 +1,77 @@
+{
+  "login": {
+    "title": "Welcome to ThunderShoes",
+    "subtitle": "Sign in to your account",
+    "email": "Email",
+    "password": "Password",
+    "enter": "Sign in",
+    "connecting": "connecting...",
+    "remember": "remember me",
+    "forgot": "Forgot password?",
+    "no_account": "Don't have an account?",
+    "signup": "Create account"
+  },
+  "register": {
+    "title": "Create Account",
+    "subtitle": "Fill in your details to register",
+    "username_label": "Username *",
+    "username_placeholder": "user123",
+    "email_label": "Email *",
+    "email_placeholder": "you@domain.com",
+    "name_label": "First name",
+    "surname_label": "Last name",
+    "password_label": "Password *",
+    "password_placeholder": "••••••••",
+    "password_confirm_label": "Confirm Password *",
+    "creating": "Creating account...",
+    "create_account": "Create",
+    "have_account": "Already have an account?",
+    "sign_in": "Sign in",
+    "validation": {
+      "username_required": "Username is required",
+      "username_min": "Username must be at least 3 characters",
+      "email_required": "Email is required",
+      "email_invalid": "Invalid email format",
+      "password_required": "Password is required",
+      "password_min": "Password must be at least 6 characters",
+      "password2_required": "Password confirmation is required",
+      "password_mismatch": "Passwords do not match"
+    },
+    "messages": {
+      "create_error": "Error creating account. Please try again.",
+      "server_unavailable": "Unable to connect to server. Please try again later.",
+      "unexpected": "An unexpected error occurred."
+    },
+    "copyright": "© 2025 ThunderShoes. All rights reserved."
+  },
+  "checkout": {
+    "title": "Checkout",
+    "email_label": "Email",
+    "place_order": "Place Order",
+    "order_created": "Order created: {{id}}",
+    "cart_empty": "Your cart is empty",
+    "quantity": "Quantity",
+    "remove": "Remove"
+  },
+  "product": {
+    "add_to_cart": "Add to Cart",
+    "delete": "Delete",
+    "free_shipping": "FREE SHIPPING",
+    "low_stock_warning": "⚠️ LAST UNITS",
+    "new": "NEW",
+    "save_amount": "SAVE ${{amount}}",
+    "sku": "SKU",
+    "available": "Available",
+    "in_stock": "in stock",
+    "sold_out": "Sold out",
+    "select_variant": "Select variant",
+    "add": "Add",
+    "select_variant_placeholder": "Select a variant",
+    "quantity": "Quantity"
+  },
+  "errors": {
+    "server_unavailable": "Unable to connect to server. Please try again later.",
+    "unexpected": "An unexpected error occurred.",
+    "invalid_credentials": "Invalid credentials. Please try again."
+  }
+}

@@ -1,4 +1,5 @@
 import { FC, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Form, Input, InputNumber, Select, Switch, Upload, Button, message } from 'antd';
 import { UploadOutlined, PlusOutlined } from '@ant-design/icons';
 import type { UploadFile, UploadProps } from 'antd';
@@ -52,6 +53,7 @@ export const ProductForm: FC<ProductFormProps> = ({
   submitText = 'Criar Produto',
   loading = false,
 }) => {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [imageFile, setImageFile] = useState<File | undefined>();
@@ -106,72 +108,72 @@ export const ProductForm: FC<ProductFormProps> = ({
       }}
     >
       <Form.Item
-        label="Nome do Produto"
+        label={t('product_form.name_label')}
         name="name"
-        rules={[{ required: true, message: 'Por favor, insira o nome do produto!' }]}
+        rules={[{ required: true, message: t('product_form.name_required') }]}
       >
-        <Input placeholder="Ex: Camiseta Básica" />
+        <Input placeholder={t('product_form.name_placeholder')} />
       </Form.Item>
 
       <Form.Item
-        label="Descrição"
+        label={t('product_form.description_label')}
         name="description"
       >
-        <TextArea rows={3} placeholder="Descrição detalhada do produto" />
+        <TextArea rows={3} placeholder={t('product_form.description_placeholder')} />
       </Form.Item>
 
       <div className="grid grid-cols-2 gap-4">
         <Form.Item
-          label="Preço (R$)"
+          label={t('product_form.price_label')}
           name="price"
-          rules={[{ required: true, message: 'Por favor, insira o preço!' }]}
+          rules={[{ required: true, message: t('product_form.price_required') }]}
         >
           <InputNumber
             min={0.01}
             step={0.01}
             precision={2}
             className="w-full"
-            placeholder="0.00"
+            placeholder={t('product_form.price_placeholder')}
           />
         </Form.Item>
 
         <Form.Item
-          label="Estoque"
+          label={t('product_form.stock_label')}
           name="stock"
-          rules={[{ required: true, message: 'Por favor, insira a quantidade em estoque!' }]}
+          rules={[{ required: true, message: t('product_form.stock_required') }]}
         >
-          <InputNumber min={0} className="w-full" placeholder="0" />
+          <InputNumber min={0} className="w-full" placeholder={t('product_form.stock_placeholder')} />
         </Form.Item>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <Form.Item
-          label="Cor"
+          label={t('product_form.color_label')}
           name="color"
-          rules={[{ required: true, message: 'Por favor, selecione a cor!' }]}
+          rules={[{ required: true, message: t('product_form.color_required') }]}
         >
-          <Select options={colorOptions} placeholder="Selecione a cor" />
+          <Select options={colorOptions} placeholder={t('product_form.color_placeholder')} />
         </Form.Item>
 
         <Form.Item
-          label="Tamanho"
+          label={t('product_form.size_label')}
           name="size"
-          rules={[{ required: true, message: 'Por favor, selecione o tamanho!' }]}
+          rules={[{ required: true, message: t('product_form.size_required') }]}
         >
-          <Select options={sizeOptions} placeholder="Selecione o tamanho" />
+          <Select options={sizeOptions} placeholder={t('product_form.size_placeholder')} />
         </Form.Item>
       </div>
 
       <Form.Item
-        label="SKU"
+        label={t('product_form.sku_label')}
         name="sku"
-        rules={[{ required: true, message: 'Por favor, insira o SKU!' }]}
+        rules={[{ required: true, message: t('product_form.sku_required') }]}
       >
-        <Input placeholder="Ex: PROD-001" />
+        <Input placeholder={t('product_form.sku_placeholder')} />
       </Form.Item>
 
       <Form.Item
-        label="Imagem do Produto"
+        label={t('product_form.image_label')}
         name="image"
       >
         <Upload
@@ -184,14 +186,14 @@ export const ProductForm: FC<ProductFormProps> = ({
           {fileList.length === 0 && (
             <div>
               <PlusOutlined />
-              <div style={{ marginTop: 8 }}>Upload</div>
+              <div style={{ marginTop: 8 }}>{t('product_form.upload_button')}</div>
             </div>
           )}
         </Upload>
       </Form.Item>
 
       <Form.Item
-        label="Produto Ativo"
+        label={t('product_form.active_label')}
         name="is_active"
         valuePropName="checked"
       >
