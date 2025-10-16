@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosRequestConfig } from 'axios';
 
 // API base URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -11,49 +11,56 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Pequena interface para tratar requests que usamos para retry
+interface RetryableRequest extends AxiosRequestConfig {
+  _retry?: boolean;
+}
+
+// Request interceptor seguro (prevenção de headers undefined)
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');
+    // Garantir que headers exista
+    config.headers = config.headers ?? {};
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      (config.headers as any).Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle token refresh
+// Response interceptor com tipagem/casts seguros para originalRequest
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: any) => {
+    const originalRequest = error?.config as RetryableRequest | undefined;
 
-    // If error is 401 and we haven't retried yet, try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error?.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
       try {
         const refreshToken = localStorage.getItem('refresh_token');
-        if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
-            refresh: refreshToken,
-          });
+        if (!refreshToken) throw new Error('No refresh token');
 
-          const { access } = response.data;
-          localStorage.setItem('access_token', access);
+        const resp = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
+          refresh: refreshToken,
+        });
 
-          // Retry the original request with new token
-          originalRequest.headers.Authorization = `Bearer ${access}`;
-          return api(originalRequest);
-        }
+        const access = resp?.data?.access;
+        if (!access) throw new Error('No access token in refresh response');
+
+        localStorage.setItem('access_token', access);
+
+        originalRequest.headers = originalRequest.headers ?? {};
+        (originalRequest.headers as any).Authorization = `Bearer ${access}`;
+
+        return api(originalRequest);
       } catch (refreshError) {
-        // If refresh fails, clear tokens and redirect to login
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         localStorage.removeItem('user');
+        // redirecionar para login
         window.location.href = '/login';
         return Promise.reject(refreshError);
       }

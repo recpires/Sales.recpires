@@ -1,6 +1,6 @@
 # Instruções: Obter PNGs gerados pela GitHub Action
 
-Este documento explica passo-a-passo como abrir um PR para que a workflow `Render PlantUML diagrams` gere os PNGs, como baixar o artefato e commitar os PNGs no repositório.
+Este documento descreve passo a passo como abrir um PR para que a workflow `Render PlantUML diagrams` gere os PNGs, como baixar o artefato e como comitar os PNGs no repositório.
 
 Pré-requisitos
 - Acesso ao repositório no GitHub
@@ -9,20 +9,20 @@ Pré-requisitos
 
 Passos
 
-1) Criar uma branch local e commitar (opcional):
+1) Criar uma branch local e empurrar (push) para o remoto:
 
 ```powershell
 Set-Location -Path "c:\Users\rodrigo.eufrasio\Documents\Programação\_Sale.recpires"
 git checkout -b add/generated-diagrams
-# (Opcional) Faça qualquer pequena mudança se quiser acionar a Action (ou crie um commit vazio)
+# (Opcional) Faça uma pequena alteração ou crie um commit vazio para acionar a Action
 git commit --allow-empty -m "Trigger diagram render workflow"
 git push -u origin add/generated-diagrams
 ```
 
 2) Abrir Pull Request
 
-- Vá para a página do repositório no GitHub e clique em "Compare & pull request" para a branch `add/generated-diagrams`.
-- Use o template de PR `diagrams.md` se desejar (preenchido automaticamente se criado no GitHub).
+- Acesse a página do repositório no GitHub e clique em "Compare & pull request" para a branch `add/generated-diagrams`.
+- Use o template de PR `diagrams.md` para facilitar a descrição (está em `.github/PULL_REQUEST_TEMPLATE/`).
 
 3) Aguardar a Action rodar
 
@@ -32,12 +32,12 @@ git push -u origin add/generated-diagrams
 4) Baixar artefato (duas opções)
 
 Opção A — pela interface do GitHub
-- Vá para a aba "Actions" → clique na execução recente da workflow → Role até a seção "Artifacts" e baixe o artefato `diagrams`.
+- Vá para a aba "Actions" → clique na execução recente da workflow → role até a seção "Artifacts" e baixe o artefato `diagrams`.
 
 Opção B — pela CLI `gh` (recomendado se tiver `gh` instalado)
 
 ```powershell
-# Baixa o último run e salva os artefatos no diretório atual
+# Baixa o artefato e extrai em docs/diagrams/generated
 gh run download --name diagrams -D docs/diagrams/generated
 ```
 
@@ -47,7 +47,7 @@ gh run download --name diagrams -D docs/diagrams/generated
 # Verifique os arquivos
 Get-ChildItem -Path docs\diagrams\generated -File
 
-# Adicione e commite os PNGs
+# Adicione e comite os PNGs
 git add docs/diagrams/generated/*.png
 git commit -m "Add generated PlantUML PNGs"
 git push origin add/generated-diagrams
@@ -59,7 +59,7 @@ git push origin add/generated-diagrams
 
 Observações
 - A Action usa um runner Linux com Docker para renderizar os PNGs: o processo é idempotente e seguro.
-- Se preferir gerar localmente (requer Docker), use o script `scripts\render-diagrams.ps1` ou `scripts/render-diagrams.sh`.
+- Se preferir gerar localmente (requer Docker), use os scripts `scripts\render-diagrams.ps1` ou `scripts/render-diagrams.sh`.
 
 ---
 

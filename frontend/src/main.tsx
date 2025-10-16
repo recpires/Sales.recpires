@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App'
 import { CartProvider } from './context/CartContext'
+import './i18n'
 
 const queryClient = new QueryClient({
   defaultOptions: {

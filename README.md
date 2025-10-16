@@ -1,69 +1,9 @@
-# Sales Management System
 
-A full-stack sales management application built with Django REST Framework and React TypeScript, featuring JWT authentication, product/order management, and a modern component-based UI architecture.
+# README (Português)
 
-## 📋 Table of Contents
+Este repositório contém a documentação principal em português em `README.pt.md`.
 
-- [Features](#features)
-- [Technology Stack](#technology-stack)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Running the Application](#running-the-application)
-- [Project Structure](#project-structure)
-- [API Documentation](#api-documentation)
-- [Database Management](#database-management)
-- [Development](#development)
-- [License](#license)
-
-## ✨ Features
-
-- **User Authentication**
-  - JWT-based authentication with token refresh
-  - User registration and login
-  - Password change functionality
-  - Automatic token rotation with blacklisting
-
-- **Product Management**
-  - Create, read, update, and delete products
-  - SKU tracking and inventory management
-  - Product status control (active/inactive)
-
-- **Order Management**
-  - Complete order lifecycle management
-  - Order status tracking (pending, processing, shipped, delivered, cancelled)
-  - Customer information management
-  - Order items with quantity and pricing
-
-- **Modern UI**
-  - Responsive design with Tailwind CSS
-  - Component-based architecture
-  - Protected routes with automatic redirection
-  - Real-time authentication state management
-
-## 🛠️ Technology Stack
-
-### Backend
-- **Django 5.2.6** - Web framework
-- **Django REST Framework 3.16.1** - RESTful API
-- **PostgreSQL** - Database
-- **djangorestframework-simplejwt** - JWT authentication
-- **python-decouple** - Environment variable management
-- **Docker & Docker Compose** - Containerization
-
-### Frontend
-- **React 19.1.1** - UI library
-- **TypeScript** - Type safety
-- **Vite 7.1.7** - Build tool
-- **React Router DOM** - Navigation
-- **Axios** - HTTP client with interceptors
-- **Tailwind CSS** - Styling
-
-## 📦 Prerequisites
-
-- Python 3.8+
-- Node.js 16+
-- Docker & Docker Compose
-- Git
+Se preferir a versão em inglês, consulte `README.en.md`.
 
 ## 🚀 Installation
 

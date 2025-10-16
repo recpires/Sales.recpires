@@ -1,23 +1,26 @@
 ---
-name: Add generated diagrams
-about: Generate PlantUML diagrams via GitHub Actions and add generated PNGs
+name: Adicionar diagramas gerados
+about: Gerar diagramas PlantUML via GitHub Actions e adicionar os PNGs gerados
 ---
 
-## Goal
+## Objetivo
 
-This PR brings generated PNGs for the PlantUML diagrams under `docs/diagrams/generated/` so they're visible in the repository browsing UI.
+Este PR adiciona os PNGs gerados a partir dos diagramas PlantUML em `docs/diagrams/generated/` para facilitar a visualização no repositório.
 
-## What I changed
-- Added generated PNGs produced by the `Render PlantUML diagrams` workflow.
+## O que mudei
 
-## How to reproduce (if needed)
-1. Create a branch and open a PR — the workflow `Render PlantUML diagrams` will run automatically.
-2. Download the `diagrams` artifact from the Action run.
-3. Commit the PNGs to `docs/diagrams/generated/` and push to the branch.
+- Adicionei PNGs gerados pela workflow `Render PlantUML diagrams`.
 
-## Notes
-- Source `.puml` files are in `docs/diagrams/` and remain authoritative.
-- If diagrams change, re-run the workflow and update the PNGs.
+## Como reproduzir (se necessário)
+
+1. Crie uma branch e abra um PR — a workflow `Render PlantUML diagrams` será executada automaticamente.
+2. Baixe o artefato `diagrams` gerado pela Action.
+3. Comite os PNGs em `docs/diagrams/generated/` e faça push para o branch.
+
+## Observações
+
+- Os arquivos fonte `.puml` estão em `docs/diagrams/` e continuam sendo a fonte de verdade.
+- Se os diagramas mudarem, reexecute a workflow e atualize os PNGs.
 
 ---
 

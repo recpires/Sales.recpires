@@ -4,12 +4,15 @@ import ApiErrorAlert from '../components/common/ApiErrorAlert';
 import orderService from '../services/orderService';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const CheckoutPage: React.FC = () => {
-  const [error, setError] = useState<any>(null);
-  const [email, setEmail] = useState('cliente@example.com');
+  type ApiError = unknown;
+  const [error, setError] = useState<ApiError>(null);
+  const [email, setEmail] = useState<string>('cliente@example.com');
   const { state, dispatch } = useCart();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handlePlaceOrder = async () => {
     setError(null);
@@ -28,7 +31,7 @@ const CheckoutPage: React.FC = () => {
       const res = await orderService.createOrder(payload);
       // success: clear cart and redirect
       dispatch({ type: 'CLEAR_CART' });
-      message.success('Pedido criado: ' + res.id);
+      message.success(t('checkout.order_created', { id: res.id }));
       navigate('/sales');
     } catch (err) {
       setError(err);
@@ -37,13 +40,13 @@ const CheckoutPage: React.FC = () => {
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Checkout</h1>
+  <h1 className="text-2xl font-bold mb-4">{t('checkout.title')}</h1>
       <ApiErrorAlert error={error} />
 
       <List
-        dataSource={state.items}
-        bordered
-        locale={{ emptyText: 'Seu carrinho está vazio' }}
+  dataSource={state.items}
+  bordered
+  locale={{ emptyText: t('checkout.cart_empty') }}
         renderItem={(item: any) => {
           const product = item.product;
           const variant = product?.variants?.find((v: any) => v.id === item.variantId) ?? null;
@@ -70,10 +73,10 @@ const CheckoutPage: React.FC = () => {
                 <div>
                   <div style={{ fontWeight: 600 }}>{product?.name ?? `Produto ${item.productId}`}</div>
                   {variant && (
-                    <div style={{ fontSize: 12, color: '#666' }}>Variante: {variant.size || ''} {variant.color ? `• ${variant.color}` : ''} • SKU: {variant.sku}</div>
+                    <div style={{ fontSize: 12, color: '#666' }}>{`Variante: ${variant.size || ''} ${variant.color ? `• ${variant.color}` : ''} • SKU: ${variant.sku}`}</div>
                   )}
                   <div style={{ marginTop: 6, fontWeight: 700 }}>R$ {unitPrice.toFixed(2)}</div>
-                  <div style={{ fontSize: 12, color: '#666' }}>Quantidade: {item.quantity}</div>
+                  <div style={{ fontSize: 12, color: '#666' }}>{t('checkout.quantity')}: {item.quantity}</div>
                 </div>
               </Space>
             </List.Item>
@@ -82,11 +85,11 @@ const CheckoutPage: React.FC = () => {
       />
 
       <div className="mt-4 mb-4">
-        <label className="block mb-2">Email</label>
-        <Input value={email} onChange={(e) => setEmail(e.target.value)} />
+        <label className="block mb-2">{t('checkout.email_label')}</label>
+  <Input value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} />
       </div>
 
-      <Button type="primary" onClick={handlePlaceOrder} disabled={state.items.length === 0}>Place Order</Button>
+      <Button type="primary" onClick={handlePlaceOrder} disabled={state.items.length === 0}>{t('checkout.place_order')}</Button>
     </div>
   );
 };
