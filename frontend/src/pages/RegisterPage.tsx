@@ -32,10 +32,12 @@ const RegisterPage: React.FC = () => {
       // redirecionar após registro, ou mostrar sucesso
       window.location.href = '/login';
     } catch (err: unknown) {
+      // tratamento seguro de erro
       const anyErr = err as any;
       if (anyErr?.response?.data) {
         setErrors(anyErr.response.data);
       } else {
+        // fallback: log e mostrar mensagem genérica
         console.error('Registration error', err);
         setErrors({ non_field_errors: ['Ocorreu um erro ao registrar. Tente novamente.'] });
       }
