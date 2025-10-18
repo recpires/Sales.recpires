@@ -20,9 +20,20 @@ class StoreSerializer(serializers.ModelSerializer):
 
 class ProductVariantSerializer(serializers.ModelSerializer):
     """Serializer for product variants"""
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductVariant
         fields = ['id', 'sku', 'price', 'color', 'size', 'stock', 'image', 'is_active']
+
+    def get_image(self, obj):
+        """Return absolute URL for variant image"""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -33,6 +44,7 @@ class ProductSerializer(serializers.ModelSerializer):
     seller_name = serializers.CharField(source='store.owner.username', read_only=True)
 
     variants = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -43,8 +55,17 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['store', 'created_at', 'updated_at', 'store_name', 'seller_name']
 
+    def get_image(self, obj):
+        """Return absolute URL for product image"""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+
     def get_variants(self, obj):
-        return ProductVariantSerializer(obj.variants.all(), many=True).data
+        return ProductVariantSerializer(obj.variants.all(), many=True, context=self.context).data
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

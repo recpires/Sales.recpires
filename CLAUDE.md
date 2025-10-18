@@ -201,6 +201,40 @@ src/
 - Ensure PostgreSQL is installed and running before starting the application
 - REST Framework uses pagination (10 items per page)
 
+### Media Files (Product Images)
+**Local Development:**
+- Images are stored in `backend/media/` directory
+- Django serves media files automatically via `/media/` URL
+- No additional configuration needed
+
+**Production (Two Options):**
+
+**Option 1: AWS S3 (Recommended for production)**
+1. Create an S3 bucket on AWS
+2. Create IAM user with S3 access permissions
+3. Set environment variables in production:
+   ```
+   USE_S3=True
+   AWS_ACCESS_KEY_ID=your-access-key
+   AWS_SECRET_ACCESS_KEY=your-secret-key
+   AWS_STORAGE_BUCKET_NAME=your-bucket-name
+   AWS_S3_REGION_NAME=us-east-1
+   ```
+4. Images will be automatically uploaded to S3
+5. API returns full S3 URLs (e.g., `https://bucket.s3.amazonaws.com/media/products/image.jpg`)
+
+**Option 2: Django/WhiteNoise (Simpler but not ideal)**
+1. Set `USE_S3=False` in production environment
+2. Ensure `MEDIA_ROOT` directory is writable
+3. Note: Media files may be lost on server restarts (ephemeral filesystem on platforms like Render/Heroku)
+4. Best for development/testing only
+
+**Image URLs:**
+- Backend serializers return absolute URLs using `request.build_absolute_uri()`
+- Frontend renders images directly from API response
+- Product images: `ProductSerializer.image` field
+- Variant images: `ProductVariantSerializer.image` field
+
 ### Frontend
 - Environment variable `VITE_API_URL` can override default API URL
 - Token refresh happens automatically - handle logout on refresh failure
