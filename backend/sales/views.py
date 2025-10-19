@@ -75,7 +75,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     partial_update: Partially update a product
     destroy: Delete a product
     """
-    queryset = Product.objects.all()
+    queryset = Product.objects.all().select_related('store').prefetch_related('variants')
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
 
@@ -181,7 +181,8 @@ class OrderViewSet(viewsets.ModelViewSet):
     partial_update: Partially update an order
     destroy: Delete an order
     """
-    queryset = Order.objects.all()
+    queryset = Order.objects.all().select_related('store').prefetch_related('items__product', 'items__variant', 'status_updates')
+    serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
