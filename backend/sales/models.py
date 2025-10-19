@@ -86,7 +86,7 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
-    # adicionados: utilitários para variantes
+    # utilitários para variantes
     @property
     def has_variants(self):
         return self.variants.exists()

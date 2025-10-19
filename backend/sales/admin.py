@@ -33,6 +33,7 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = ('id', 'customer_name', 'status', 'payment_method', 'payment_status', 'total_amount', 'created_at')
     list_filter = ('status', 'payment_method', 'payment_status', 'created_at')
     search_fields = ('id', 'customer_name', 'customer_email', 'customer_phone')
+    readonly_fields = ('status', 'total_amount', 'paid_at')
     inlines = [OrderItemInline, OrderStatusUpdateInline]
     actions = ['action_mark_out_for_delivery', 'action_mark_delivered', 'action_mark_cancelled', 'action_mark_cod_paid']
 
