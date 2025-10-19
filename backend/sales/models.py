@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
 from decimal import Decimal
+from django.db.models import Q
 
 
 class Store(models.Model):
@@ -71,6 +72,17 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    # adicionados: utilitários para variantes
+    @property
+    def has_variants(self):
+        return self.variants.exists()
+
+    @property
+    def total_stock(self):
+        if self.has_variants:
+            return sum(v.stock for v in self.variants.filter(is_active=True))
+        return self.stock
+
 
 class ProductVariant(models.Model):
     """Variants for a product (different size/color/price/sku/stock)
@@ -92,6 +104,14 @@ class ProductVariant(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        constraints = [
+            # Evita duplicar a mesma combinação cor+tamanho para o mesmo produto
+            models.UniqueConstraint(
+                fields=['product', 'color', 'size'],
+                name='uniq_product_color_size',
+                condition=Q(color__isnull=False) & Q(size__isnull=False),
+            )
+        ]
 
     def __str__(self):
         attrs = []
@@ -175,8 +195,14 @@ class OrderItem(models.Model):
         return self.quantity * self.unit_price
 
     def save(self, *args, **kwargs):
-        """Auto-set unit price from product if not provided"""
-        # Prefer variant price when variant is present
+        """Auto-define preço unitário e valida vínculo produto/variante"""
+        # Variante deve pertencer ao mesmo produto
+        if self.variant and self.variant.product_id != self.product_id:
+            raise ValueError("A variação selecionada não pertence ao produto informado.")
+        # Se o produto tem variantes, a variante é obrigatória
+        if not self.variant and self.product.variants.exists():
+            raise ValueError("Este produto possui variações. Selecione uma variação.")
+        # Preferir preço da variante quando houver
         if not self.unit_price:
             if getattr(self, 'variant') and self.variant:
                 self.unit_price = self.variant.price
