@@ -73,5 +73,30 @@
     "server_unavailable": "Não foi possível conectar ao servidor. Por favor, tente novamente mais tarde.",
     "unexpected": "Ocorreu um erro inesperado.",
     "invalid_credentials": "Credenciais inválidas. Por favor, tente novamente."
+  },
+  "product_form": {
+    "name_label": "Nome do Produto",
+    "name_placeholder": "Ex: Tênis Esportivo Nike",
+    "name_required": "Nome do produto é obrigatório",
+    "description_label": "Descrição",
+    "description_placeholder": "Descreva o produto...",
+    "price_label": "Preço (R$)",
+    "price_placeholder": "0.00",
+    "price_required": "Preço é obrigatório",
+    "stock_label": "Estoque",
+    "stock_placeholder": "0",
+    "stock_required": "Quantidade em estoque é obrigatória",
+    "color_label": "Cor",
+    "color_placeholder": "Selecione uma cor",
+    "color_required": "Cor é obrigatória",
+    "size_label": "Tamanho",
+    "size_placeholder": "Selecione um tamanho",
+    "size_required": "Tamanho é obrigatório",
+    "sku_label": "SKU (Código do Produto)",
+    "sku_placeholder": "Ex: NIK-ESP-001",
+    "sku_required": "SKU é obrigatório",
+    "image_label": "Imagem do Produto",
+    "upload_button": "Upload",
+    "active_label": "Produto Ativo"
   }
 }

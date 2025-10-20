@@ -92,6 +92,7 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
   const discountedPrice = parseFloat(product.price);
 
   return (
+    <>
     <Card
       hoverable
       className="h-full flex flex-col relative overflow-hidden"
@@ -249,6 +250,7 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
         </div>
       </div>
     </Modal>
+    </>
   );
 };
 

@@ -1,118 +1,59 @@
-from django.contrib import admin, messages
-from django.db import transaction
-from django.db.utils import IntegrityError
-from .models import Product, Order, OrderItem, Store, ProductVariant
-
+from django.contrib import admin
+from .models import Store, Product, ProductVariant, Order, OrderItem, OrderStatusUpdate
 
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
-    list_display = ['name', 'owner', 'phone', 'email', 'is_active', 'created_at']
-    list_filter = ['is_active', 'created_at']
-    search_fields = ['name', 'owner__username', 'email']
-    list_editable = ['is_active']
-    readonly_fields = ['created_at', 'updated_at']
+    list_display = ('name', 'owner', 'is_active', 'created_at')
+    search_fields = ('name', 'owner__username')
+    list_filter = ('is_active',)
 
+class ProductVariantInline(admin.TabularInline):
+    model = ProductVariant
+    extra = 0
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['name', 'store', 'sku', 'price', 'stock', 'is_active', 'created_at']
-    list_filter = ['is_active', 'store', 'created_at']
-    search_fields = ['name', 'sku', 'description', 'store__name']
-    list_editable = ['price', 'stock', 'is_active']
-    readonly_fields = ['created_at', 'updated_at']
-    actions = ['create_variants_for_selected']
-
-    def create_variants_for_selected(self, request, queryset):
-        """Admin action: create a default variant for each selected product that has no variants."""
-        created = 0
-        skipped = 0
-        failed = 0
-
-        for p in queryset:
-            if p.variants.exists():
-                skipped += 1
-                continue
-
-            sku = p.sku if p.sku else f"PROD-{p.id}"
-            if ProductVariant.objects.filter(sku=sku).exists():
-                sku = f"{sku}-{p.id}"
-
-            try:
-                with transaction.atomic():
-                    ProductVariant.objects.create(
-                        product=p,
-                        sku=sku,
-                        price=p.price,
-                        color=p.color if p.color else None,
-                        size=p.size if p.size else None,
-                        stock=p.stock,
-                        image=p.image,
-                        is_active=p.is_active,
-                    )
-                    created += 1
-            except IntegrityError:
-                failed += 1
-
-        msgs = []
-        if created:
-            msgs.append(f"Created {created} variants.")
-        if skipped:
-            msgs.append(f"Skipped {skipped} products that already had variants.")
-        if failed:
-            msgs.append(f"Failed to create {failed} variants due to errors.")
-
-        messages.info(request, ' '.join(msgs) if msgs else 'No products processed.')
-
-    create_variants_for_selected.short_description = 'Create variants for selected products'
-
+    list_display = ('name', 'store', 'price', 'stock', 'is_active', 'created_at')
+    list_filter = ('store', 'is_active', 'color', 'size')
+    search_fields = ('name', 'sku')
+    inlines = [ProductVariantInline]
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
-    extra = 1
-    fields = ['product', 'variant', 'quantity', 'unit_price']
-    readonly_fields = ['unit_price']
+    extra = 0
 
+class OrderStatusUpdateInline(admin.TabularInline):
+    model = OrderStatusUpdate
+    extra = 0
+    readonly_fields = ('status', 'note', 'is_automatic', 'created_at')
+    can_delete = False
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'store', 'customer_name', 'customer_email', 'status', 'total_amount', 'created_at']
-    list_filter = ['status', 'store', 'created_at']
-    search_fields = ['customer_name', 'customer_email', 'id', 'store__name']
-    list_editable = ['status']
-    readonly_fields = ['total_amount', 'created_at', 'updated_at']
-    inlines = [OrderItemInline]
+    list_display = ('id', 'customer_name', 'status', 'payment_method', 'payment_status', 'total_amount', 'created_at')
+    list_filter = ('status', 'payment_method', 'payment_status', 'created_at')
+    search_fields = ('id', 'customer_name', 'customer_email', 'customer_phone')
+    readonly_fields = ('status', 'total_amount', 'paid_at')
+    inlines = [OrderItemInline, OrderStatusUpdateInline]
+    actions = ['action_mark_out_for_delivery', 'action_mark_delivered', 'action_mark_cancelled', 'action_mark_cod_paid']
 
-    fieldsets = (
-        ('Store Information', {
-            'fields': ('store',)
-        }),
-        ('Customer Information', {
-            'fields': ('customer_name', 'customer_email', 'customer_phone', 'shipping_address')
-        }),
-        ('Order Details', {
-            'fields': ('status', 'total_amount')
-        }),
-        ('Timestamps', {
-            'fields': ('created_at', 'updated_at')
-        }),
-    )
+    def action_mark_out_for_delivery(self, request, queryset):
+        for order in queryset:
+            order.set_status('out_for_delivery', note='Atualizado via Admin', automatic=False)
+    action_mark_out_for_delivery.short_description = 'Marcar como "Saiu para entrega"'
 
+    def action_mark_delivered(self, request, queryset):
+        for order in queryset:
+            order.set_status('delivered', note='Atualizado via Admin', automatic=False)
+    action_mark_delivered.short_description = 'Marcar como "Entregue"'
 
-@admin.register(OrderItem)
-class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ['order', 'product', 'variant', 'quantity', 'unit_price', 'get_subtotal']
-    list_filter = ['order__status']
-    search_fields = ['order__id', 'product__name', 'variant__sku']
-    readonly_fields = ['unit_price']
+    def action_mark_cancelled(self, request, queryset):
+        for order in queryset:
+            order.set_status('cancelled', note='Atualizado via Admin', automatic=False)
+    action_mark_cancelled.short_description = 'Marcar como "Cancelado"'
 
-    def get_subtotal(self, obj):
-        return f"${obj.get_subtotal():.2f}"
-    get_subtotal.short_description = 'Subtotal'
-
-
-@admin.register(ProductVariant)
-class ProductVariantAdmin(admin.ModelAdmin):
-    list_display = ['product', 'sku', 'price', 'stock', 'is_active', 'created_at']
-    list_filter = ['is_active', 'product']
-    search_fields = ['sku', 'product__name']
-    readonly_fields = ['created_at', 'updated_at']
+    def action_mark_cod_paid(self, request, queryset):
+        for order in queryset:
+            if order.payment_method == 'cod':
+                order.mark_cod_paid()
+    action_mark_cod_paid.short_description = 'Marcar COD como pago'

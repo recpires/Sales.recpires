@@ -73,6 +73,7 @@ urlpatterns = [
     path('api/', include('sales.urls')),
 ]
 
-# Serve media files in development
-if settings.DEBUG:
+# Serve media files (in development and production if not using S3)
+# Media files will be served by Django/WhiteNoise if USE_S3=False
+if not settings.USE_S3:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

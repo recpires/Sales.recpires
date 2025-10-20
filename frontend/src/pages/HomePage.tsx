@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, Spin, Empty, Modal, Button, message, Input } from 'antd';
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { PlusOutlined, SearchOutlined, ShopOutlined } from '@ant-design/icons';
 import { NavBar } from '../components/navbar';
 import { Aside } from '../components/aside';
 import { useCart } from '../context/CartContext';
 import authService from '../services/authService';
 import { useProducts, useCreateProductWithImage, useDeleteProduct } from '../hooks/useProducts';
+import { useMyStore } from '../hooks/useStore';
 import { ProductCard } from '../components/common/ProductCard';
 import { ProductForm } from '../components/common/ProductForm';
 import { ConfirmDeleteModal } from '../components/common/ConfirmDeleteModal';
+import { StoreSetupModal } from '../components/common/StoreSetupModal';
 import { Product } from '../types/product';
 
 const HomePage = () => {
@@ -16,11 +18,23 @@ const HomePage = () => {
   const [isAsideOpen, setIsAsideOpen] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isStoreSetupModalOpen, setIsStoreSetupModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data, isLoading, error } = useProducts();
+  const { data: myStore, isLoading: isLoadingStore, error: storeError } = useMyStore();
   const allProducts = data?.results || [];
+
+  const isAdmin = user?.is_staff || user?.is_superuser;
+  const hasStore = !!myStore;
+
+  // Auto-open store setup modal if admin doesn't have a store
+  useEffect(() => {
+    if (isAdmin && !isLoadingStore && !hasStore && storeError) {
+      setIsStoreSetupModalOpen(true);
+    }
+  }, [isAdmin, isLoadingStore, hasStore, storeError]);
 
   // Filtra produtos baseado no termo de pesquisa
   const products = allProducts.filter(product =>
@@ -85,7 +99,9 @@ const HomePage = () => {
     setProductToDelete(null);
   };
 
-  const isAdmin = user?.is_staff || user?.is_superuser;
+  const handleStoreSetupSuccess = () => {
+    message.success('Loja configurada! Agora você pode criar produtos.');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,23 +114,42 @@ const HomePage = () => {
           {/* Header */}
           {isAdmin ? (
             <div className="mb-8">
+              {/* Store Setup Alert */}
+              {!isLoadingStore && !hasStore && (
+                <Alert
+                  message="Configure sua Loja"
+                  description="Você precisa configurar sua loja antes de criar produtos."
+                  type="warning"
+                  showIcon
+                  icon={<ShopOutlined />}
+                  action={
+                    <Button size="small" type="primary" onClick={() => setIsStoreSetupModalOpen(true)}>
+                      Configurar Agora
+                    </Button>
+                  }
+                  className="mb-6"
+                />
+              )}
+
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">
                     Olá, {user?.first_name || user?.username || 'User'}!
                   </h1>
                   <p className="text-gray-600">
-                    Veja todos os produtos disponíveis
+                    {hasStore ? 'Veja todos os produtos disponíveis' : 'Configure sua loja para começar'}
                   </p>
                 </div>
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<PlusOutlined />}
-                  onClick={() => setIsModalOpen(true)}
-                >
-                  Novo Produto
-                </Button>
+                {hasStore && (
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<PlusOutlined />}
+                    onClick={() => setIsModalOpen(true)}
+                  >
+                    Novo Produto
+                  </Button>
+                )}
               </div>
                 <Input
                 size="large"
@@ -230,6 +265,13 @@ const HomePage = () => {
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         loading={deleteProductMutation.isPending}
+      />
+
+      {/* Modal de Configuração de Loja */}
+      <StoreSetupModal
+        isOpen={isStoreSetupModalOpen}
+        onClose={() => setIsStoreSetupModalOpen(false)}
+        onSuccess={handleStoreSetupSuccess}
       />
     </div>
   );

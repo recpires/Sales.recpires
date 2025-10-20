@@ -38,7 +38,6 @@ class AuthService {
    * Login user
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    console.log('Login attempt:', credentials);
     const response = await api.post<AuthResponse>('/auth/login/', credentials);
 
     // Store tokens and user data
