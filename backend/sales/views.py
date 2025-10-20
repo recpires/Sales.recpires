@@ -2,6 +2,7 @@ from decimal import Decimal
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Store, Product, ProductVariant, Order, OrderItem
 from .serializers import (
@@ -15,6 +16,20 @@ from .serializers import (
 class StoreViewSet(viewsets.ModelViewSet):
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """Define o owner e valida que o usuário ainda não tem loja."""
+        if Store.objects.filter(owner=self.request.user).exists():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError("Você já possui uma loja cadastrada.")
+        serializer.save(owner=self.request.user)
+
+    def get_queryset(self):
+        """Cada usuário vê apenas sua própria loja."""
+        if self.request.user.is_staff or self.request.user.is_superuser:
+            return Store.objects.all()
+        return Store.objects.filter(owner=self.request.user)
 
 
 class ProductViewSet(viewsets.ModelViewSet):
