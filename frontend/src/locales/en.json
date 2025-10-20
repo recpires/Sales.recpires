@@ -73,5 +73,30 @@
     "server_unavailable": "Unable to connect to server. Please try again later.",
     "unexpected": "An unexpected error occurred.",
     "invalid_credentials": "Invalid credentials. Please try again."
+  },
+  "product_form": {
+    "name_label": "Product Name",
+    "name_placeholder": "e.g., Nike Sports Shoes",
+    "name_required": "Product name is required",
+    "description_label": "Description",
+    "description_placeholder": "Describe the product...",
+    "price_label": "Price ($)",
+    "price_placeholder": "0.00",
+    "price_required": "Price is required",
+    "stock_label": "Stock",
+    "stock_placeholder": "0",
+    "stock_required": "Stock quantity is required",
+    "color_label": "Color",
+    "color_placeholder": "Select a color",
+    "color_required": "Color is required",
+    "size_label": "Size",
+    "size_placeholder": "Select a size",
+    "size_required": "Size is required",
+    "sku_label": "SKU (Product Code)",
+    "sku_placeholder": "e.g., NIK-SPT-001",
+    "sku_required": "SKU is required",
+    "image_label": "Product Image",
+    "upload_button": "Upload",
+    "active_label": "Product Active"
   }
 }

@@ -8,6 +8,15 @@ class ProductVariantSerializer(serializers.ModelSerializer):
         fields = ['id', 'sku', 'price', 'color', 'size', 'model', 'stock', 'image', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def get_image(self, obj):
+        """Return absolute URL for variant image"""
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+
 
 class ProductSerializer(serializers.ModelSerializer):
     variants = ProductVariantSerializer(many=True, read_only=True)
