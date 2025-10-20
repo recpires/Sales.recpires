@@ -12,18 +12,30 @@ from .serializers import (
     OrderItemSerializer,
 )
 
-# Se já existir, ignore esta classe
 class StoreViewSet(viewsets.ModelViewSet):
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
 
-# Se já existir, ignore esta classe
-class OrderItemViewSet(viewsets.ModelViewSet):
-    queryset = OrderItem.objects.select_related('order', 'product', 'variant').all()
-    serializer_class = OrderItemSerializer
 
-# Endpoint de variantes com filtros
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all().select_related('store').prefetch_related('variants')
+    serializer_class = ProductSerializer
+
+    @action(detail=True, methods=['get'])
+    def options(self, request, pk=None):
+        """Opções de variação disponíveis (cores, tamanhos, modelos) para o produto."""
+        product = self.get_object()
+        qs = product.variants.filter(is_active=True)
+        data = {
+            'colors': list(qs.exclude(color__isnull=True).values_list('color', flat=True).distinct()),
+            'sizes': list(qs.exclude(size__isnull=True).values_list('size', flat=True).distinct()),
+            'models': list(qs.exclude(model__isnull=True).values_list('model', flat=True).distinct()),
+        }
+        return Response(data)
+
+
 class ProductVariantViewSet(viewsets.ReadOnlyModelViewSet):
+    """Lista/filtra variantes por produto, cor, tamanho, modelo, disponibilidade e preço."""
     queryset = ProductVariant.objects.select_related('product').all()
     serializer_class = ProductVariantSerializer
 
@@ -67,15 +79,34 @@ class ProductVariantViewSet(viewsets.ReadOnlyModelViewSet):
 
         return qs.order_by('-created_at')
 
-# Opcional: ação para listar opções de variação num produto
-# Se seu ProductViewSet já existir, apenas adicione este método dentro da classe:
-#   @action(detail=True, methods=['get'])
-#   def options(self, request, pk=None):
-#       product = self.get_object()
-#       qs = product.variants.filter(is_active=True)
-#       data = {
-#           'colors': list(qs.exclude(color__isnull=True).values_list('color', flat=True).distinct()),
-#           'sizes': list(qs.exclude(size__isnull=True).values_list('size', flat=True).distinct()),
-#           'models': list(qs.exclude(model__isnull=True).values_list('model', flat=True).distinct()),
-#       }
-#       return Response(data)
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all().select_related('store').prefetch_related('items__product', 'items__variant', 'status_updates')
+    serializer_class = OrderSerializer
+
+    @action(detail=True, methods=['post'])
+    def set_status(self, request, pk=None):
+        """Atualiza o status do pedido e registra histórico."""
+        order = self.get_object()
+        new_status = request.data.get('status')
+        note = request.data.get('note', '')
+        try:
+            order.set_status(new_status, note=note, automatic=False)
+            return Response({'status': order.status})
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def mark_cod_paid(self, request, pk=None):
+        """Marca pagamento na entrega (COD) como pago."""
+        order = self.get_object()
+        try:
+            order.mark_cod_paid()
+            return Response({'payment_status': order.payment_status, 'paid_at': order.paid_at})
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class OrderItemViewSet(viewsets.ModelViewSet):
+    queryset = OrderItem.objects.select_related('order', 'product', 'variant').all()
+    serializer_class = OrderItemSerializer
