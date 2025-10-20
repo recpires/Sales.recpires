@@ -3,6 +3,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 
 from .models import Store, Product, ProductVariant, Order, OrderItem
 from .serializers import (
@@ -20,15 +21,9 @@ class StoreViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Define o owner e valida que o usuário ainda não tem loja."""
-        print(f"[DEBUG] User: {self.request.user}, Data: {serializer.validated_data}")
         if Store.objects.filter(owner=self.request.user).exists():
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({"detail": "Você já possui uma loja cadastrada."})
-        try:
-            serializer.save(owner=self.request.user)
-        except Exception as e:
-            print(f"[ERROR] {e}")
-            raise
+            raise ValidationError({"owner": ["Você já possui uma loja cadastrada."]})
+        serializer.save(owner=self.request.user)
 
     def get_queryset(self):
         """Cada usuário vê apenas sua própria loja."""
@@ -40,6 +35,7 @@ class StoreViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all().select_related('store').prefetch_related('variants')
     serializer_class = ProductSerializer
+    permission_classes = [IsAuthenticated]
 
     @action(detail=True, methods=['get'])
     def options(self, request, pk=None):
@@ -53,15 +49,44 @@ class ProductViewSet(viewsets.ModelViewSet):
         }
         return Response(data)
 
+    def get_queryset(self):
+        """Cada usuário vê apenas produtos da sua loja (ou todos se admin)."""
+        user = self.request.user
+        if user.is_staff or user.is_superuser:
+            return Product.objects.all().select_related('store').prefetch_related('variants')
+        try:
+            store = user.store
+            return Product.objects.filter(store=store).select_related('store').prefetch_related('variants')
+        except Store.DoesNotExist:
+            return Product.objects.none()
+
+    def perform_create(self, serializer):
+        """Associa o produto à loja do usuário."""
+        try:
+            store = self.request.user.store
+        except Store.DoesNotExist:
+            raise ValidationError({"store": ["Você precisa criar uma loja antes de adicionar produtos."]})
+        serializer.save(store=store)
+
 
 class ProductVariantViewSet(viewsets.ReadOnlyModelViewSet):
     """Lista/filtra variantes por produto, cor, tamanho, modelo, disponibilidade e preço."""
     queryset = ProductVariant.objects.select_related('product').all()
     serializer_class = ProductVariantSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         qs = super().get_queryset()
         p = self.request.query_params
+
+        # Filtrar por loja do usuário (não-admin)
+        user = self.request.user
+        if not (user.is_staff or user.is_superuser):
+            try:
+                store = user.store
+                qs = qs.filter(product__store=store)
+            except Store.DoesNotExist:
+                return ProductVariant.objects.none()
 
         if p.get('product'):
             qs = qs.filter(product_id=p.get('product'))
@@ -103,6 +128,26 @@ class ProductVariantViewSet(viewsets.ReadOnlyModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().select_related('store').prefetch_related('items__product', 'items__variant', 'status_updates')
     serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Cada usuário vê apenas pedidos da sua loja (ou todos se admin)."""
+        user = self.request.user
+        if user.is_staff or user.is_superuser:
+            return Order.objects.all().select_related('store').prefetch_related('items__product', 'items__variant', 'status_updates')
+        try:
+            store = user.store
+            return Order.objects.filter(store=store).select_related('store').prefetch_related('items__product', 'items__variant', 'status_updates')
+        except Store.DoesNotExist:
+            return Order.objects.none()
+
+    def perform_create(self, serializer):
+        """Associa o pedido à loja do usuário."""
+        try:
+            store = self.request.user.store
+        except Store.DoesNotExist:
+            raise ValidationError({"store": ["Você precisa criar uma loja antes de criar pedidos."]})
+        serializer.save(store=store)
 
     @action(detail=True, methods=['post'])
     def set_status(self, request, pk=None):
@@ -130,3 +175,15 @@ class OrderViewSet(viewsets.ModelViewSet):
 class OrderItemViewSet(viewsets.ModelViewSet):
     queryset = OrderItem.objects.select_related('order', 'product', 'variant').all()
     serializer_class = OrderItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Cada usuário vê apenas itens de pedidos da sua loja."""
+        user = self.request.user
+        if user.is_staff or user.is_superuser:
+            return OrderItem.objects.select_related('order', 'product', 'variant').all()
+        try:
+            store = user.store
+            return OrderItem.objects.filter(order__store=store).select_related('order', 'product', 'variant')
+        except Store.DoesNotExist:
+            return OrderItem.objects.none()
