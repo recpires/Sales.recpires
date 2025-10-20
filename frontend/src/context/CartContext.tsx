@@ -21,9 +21,12 @@ export interface Product {
 }
 
 export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
   productId: number;
   variantId?: number | null;
-  quantity: number;
   product?: Product;
   variantSnapshot?: any | null;
 }
@@ -60,8 +63,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       if (existingIndex >= 0) {
         const items = [...state.items];
         items[existingIndex] = {
-          ...items[existingIndex],
-          quantity: items[existingIndex].quantity + action.payload.quantity,
+          ...items[existingIndex]!,
+          quantity: items[existingIndex]!.quantity + action.payload.quantity,
         };
         return { ...state, items };
       }
