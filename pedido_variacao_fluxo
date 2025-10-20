@@ -1,0 +1,41 @@
+digraph {
+	rankdir=LR size=10
+	A [label="Cliente navega pelos produtos"]
+	B [label="Seleciona produto + variação
+(ex: camisa azul, M)"]
+	C [label="Escolhe quantidade"]
+	D [label="Adiciona ao carrinho"]
+	E [label="Vai para checkout"]
+	F [label="Escolhe método de pagamento
+(Pagar na entrega: dinheiro, pix, cartão)"]
+	G [label="Cadastra/seleciona endereço"]
+	H [label="Pedido é criado com status:
+“Aguardando entrega”"]
+	I [label="Lojista visualiza pedido:
+Itens, endereço, cliente"]
+	J [label="Lojista atualiza status:
+“Pedido saiu para entrega”"]
+	K [label="Lojista pode confirmar pagamento
+e finalizar pedido"]
+	P1 [label="Cadastro de Produto"]
+	P2 [label="Adiciona variações:
+(ex: cor, tamanho)"]
+	P3 [label="Define estoque e preço
+por variação"]
+	P4 [label="Sistema atualiza estoque
+quando pedido é feito"]
+	A -> B
+	B -> C
+	C -> D
+	D -> E
+	E -> F
+	F -> G
+	G -> H
+	H -> I
+	I -> J
+	J -> K
+	P1 -> P2
+	P2 -> P3
+	P3 -> P4
+	P4 -> B [label="(dados usados na compra)"]
+}

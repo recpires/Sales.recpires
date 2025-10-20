@@ -1,30 +1,12 @@
 from rest_framework import serializers
-from .models import Product, Order, OrderItem, Store, ProductVariant
-from django.db import transaction
-from rest_framework.exceptions import ValidationError
-
-
-class StoreSerializer(serializers.ModelSerializer):
-    """Serializer for Store model"""
-    owner_username = serializers.CharField(source='owner.username', read_only=True)
-
-    class Meta:
-        model = Store
-        fields = [
-            'id', 'name', 'description', 'phone', 'email',
-            'address', 'is_active', 'owner', 'owner_username',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['owner', 'created_at', 'updated_at']
+from .models import Store, Product, ProductVariant, Order, OrderItem, OrderStatusUpdate
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
-    """Serializer for product variants"""
-    image = serializers.SerializerMethodField()
-
     class Meta:
         model = ProductVariant
-        fields = ['id', 'sku', 'price', 'color', 'size', 'stock', 'image', 'is_active']
+        fields = ['id', 'sku', 'price', 'color', 'size', 'model', 'stock', 'image', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_image(self, obj):
         """Return absolute URL for variant image"""
@@ -37,140 +19,87 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    """Serializer for Product model"""
-    color_display = serializers.CharField(source='get_color_display', read_only=True)
-    size_display = serializers.CharField(source='get_size_display', read_only=True)
-    store_name = serializers.CharField(source='store.name', read_only=True)
-    seller_name = serializers.CharField(source='store.owner.username', read_only=True)
-
-    variants = serializers.SerializerMethodField()
-    image = serializers.SerializerMethodField()
+    variants = ProductVariantSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            'id', 'store', 'store_name', 'seller_name', 'name', 'description',
-            'price', 'color', 'color_display', 'size', 'size_display', 'stock',
+            'id', 'store', 'name', 'description', 'price', 'color', 'size', 'stock',
             'sku', 'is_active', 'image', 'created_at', 'updated_at', 'variants'
         ]
-        read_only_fields = ['store', 'created_at', 'updated_at', 'store_name', 'seller_name']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
-    def get_image(self, obj):
-        """Return absolute URL for product image"""
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
 
-    def get_variants(self, obj):
-        return ProductVariantSerializer(obj.variants.all(), many=True, context=self.context).data
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderStatusUpdate
+        fields = ['status', 'note', 'is_automatic', 'created_at']
+        read_only_fields = ['created_at', 'is_automatic']
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    """Serializer for OrderItem model"""
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    subtotal = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        read_only=True,
-        source='get_subtotal'
-    )
-    variant = serializers.PrimaryKeyRelatedField(queryset=ProductVariant.objects.all(), allow_null=True, required=False)
-
     class Meta:
         model = OrderItem
-        fields = [
-            'id', 'product', 'variant', 'product_name', 'quantity',
-            'unit_price', 'subtotal'
-        ]
-        read_only_fields = ['unit_price', 'subtotal']
+        fields = ['id', 'product', 'variant', 'quantity', 'unit_price']
+        read_only_fields = ['id']
+
+    def validate(self, attrs):
+        product = attrs.get('product') or getattr(self.instance, 'product', None)
+        variant = attrs.get('variant') or getattr(self.instance, 'variant', None)
+        if product and variant and variant.product_id != product.id:
+            raise serializers.ValidationError("A variação selecionada não pertence ao produto informado.")
+        # Se o produto tem variantes, a variante é obrigatória
+        if product and not variant and product.variants.exists():
+            raise serializers.ValidationError("Este produto possui variações. Selecione uma variação.")
+        return attrs
+
+    def create(self, validated_data):
+        # Preenche unit_price com preço da variante ou do produto, se não enviado
+        if not validated_data.get('unit_price'):
+            variant = validated_data.get('variant')
+            validated_data['unit_price'] = (variant.price if variant else validated_data['product'].price)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        if 'unit_price' not in validated_data or not validated_data.get('unit_price'):
+            variant = validated_data.get('variant', instance.variant)
+            product = validated_data.get('product', instance.product)
+            validated_data['unit_price'] = (variant.price if variant else product.price)
+        return super().update(instance, validated_data)
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    """Serializer for Order model"""
-    items = OrderItemSerializer(many=True, read_only=True)
-    store_name = serializers.CharField(source='store.name', read_only=True)
-
-    class Meta:
-        model = Order
-        fields = [
-            'id', 'store', 'store_name', 'customer_name', 'customer_email',
-            'customer_phone', 'shipping_address', 'status', 'total_amount',
-            'created_at', 'updated_at', 'items'
-        ]
-        read_only_fields = ['created_at', 'updated_at', 'total_amount', 'store_name']
-
-
-class OrderCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating orders with items"""
     items = OrderItemSerializer(many=True)
+    status_updates = OrderStatusUpdateSerializer(many=True, read_only=True)
 
     class Meta:
         model = Order
         fields = [
-            'customer_name', 'customer_email', 'customer_phone',
-            'shipping_address', 'status', 'items'
+            'id', 'store', 'customer_name', 'customer_email', 'customer_phone',
+            'shipping_address', 'status', 'payment_method', 'payment_status', 'paid_at',
+            'total_amount', 'items', 'status_updates', 'created_at', 'updated_at'
         ]
+        read_only_fields = ['id', 'total_amount', 'status_updates', 'paid_at', 'created_at', 'updated_at']
 
     def create(self, validated_data):
-        items_data = validated_data.pop('items')
+        items_data = validated_data.pop('items', [])
+        order = Order.objects.create(**validated_data)
+        for item in items_data:
+            OrderItem.objects.create(order=order, **item)
+        order.calculate_total()
+        return order
 
-        # Create order and items inside a transaction to safely update stock
-        with transaction.atomic():
-            order = Order.objects.create(**validated_data)
+    def update(self, instance, validated_data):
+        items_data = validated_data.pop('items', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
 
-            for item_data in items_data:
-                variant = item_data.get('variant', None)
-                product = item_data.get('product')
-                quantity = item_data.get('quantity')
+        if items_data is not None:
+            # substitui itens do pedido (devolve estoque via delete e recria)
+            instance.items.all().delete()
+            for item in items_data:
+                OrderItem.objects.create(order=instance, **item)
+            instance.calculate_total()
 
-                # Resolve variant if provided as PK or object
-                if variant:
-                    if isinstance(variant, int):
-                        try:
-                            variant_obj = ProductVariant.objects.select_for_update().get(pk=variant)
-                        except ProductVariant.DoesNotExist:
-                            raise ValidationError(f"Variant with id {variant} does not exist")
-                    else:
-                        try:
-                            variant_obj = ProductVariant.objects.select_for_update().get(pk=variant.id)
-                        except ProductVariant.DoesNotExist:
-                            raise ValidationError(f"Variant with id {variant.id} does not exist")
-
-                    if variant_obj.stock < quantity:
-                        raise ValidationError({
-                            'stock': f"Insufficient stock for variant {variant_obj.sku}",
-                            'available': variant_obj.stock,
-                            'requested': quantity,
-                        })
-
-                    # decrement stock
-                    variant_obj.stock -= quantity
-                    variant_obj.save()
-
-                    unit_price = variant_obj.price
-                    OrderItem.objects.create(order=order, product=product, variant=variant_obj, quantity=quantity, unit_price=unit_price)
-                else:
-                    # no variant: operate on product stock
-                    try:
-                        product_obj = Product.objects.select_for_update().get(pk=product.id)
-                    except Product.DoesNotExist:
-                        raise ValidationError(f"Product with id {product.id} does not exist")
-
-                    if product_obj.stock < quantity:
-                        raise ValidationError({
-                            'stock': f"Insufficient stock for product {product_obj.name}",
-                            'available': product_obj.stock,
-                            'requested': quantity,
-                        })
-
-                    product_obj.stock -= quantity
-                    product_obj.save()
-
-                    unit_price = product_obj.price
-                    OrderItem.objects.create(order=order, product=product_obj, quantity=quantity, unit_price=unit_price)
-
-            order.calculate_total()
-            return order
+        return instance
