@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
+from django.db import IntegrityError
 
 from .models import Store, Product, ProductVariant, Order, OrderItem
 from .serializers import (
@@ -19,10 +20,39 @@ class StoreViewSet(viewsets.ModelViewSet):
     serializer_class = StoreSerializer
     permission_classes = [IsAuthenticated]
 
+    def create(self, request, *args, **kwargs):
+        """Override create para capturar erros de integridade."""
+        # Verifica se já tem loja antes de tentar criar
+        if Store.objects.filter(owner=request.user).exists():
+            return Response(
+                {"detail": "Você já possui uma loja cadastrada."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except IntegrityError as e:
+            return Response(
+                {"detail": f"Erro de integridade: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except ValidationError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {"detail": f"Erro inesperado: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
     def perform_create(self, serializer):
-        """Define o owner e valida que o usuário ainda não tem loja."""
-        if Store.objects.filter(owner=self.request.user).exists():
-            raise ValidationError({"owner": ["Você já possui uma loja cadastrada."]})
+        """Define o owner como usuário autenticado."""
         serializer.save(owner=self.request.user)
 
     def get_queryset(self):
