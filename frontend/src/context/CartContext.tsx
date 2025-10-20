@@ -25,6 +25,8 @@ export interface CartItem {
   name: string;
   price: number;
   quantity: number;
+  productId: number;
+  variantId?: number | null;
   product?: Product;
   variantSnapshot?: any | null;
 }
@@ -61,8 +63,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       if (existingIndex >= 0) {
         const items = [...state.items];
         items[existingIndex] = {
-          ...items[existingIndex],
-          quantity: items[existingIndex].quantity + action.payload.quantity,
+          ...items[existingIndex]!,
+          quantity: items[existingIndex]!.quantity + action.payload.quantity,
         };
         return { ...state, items };
       }
@@ -84,8 +86,6 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       });
       return { ...state, items };
     }
-    case 'REMOVE_ITEM':
-      return { ...state, items: state.items.filter(i => i.id !== action.payload.id) };
     case 'CLEAR_CART':
       return { ...state, items: [] };
     case 'SET_CART':

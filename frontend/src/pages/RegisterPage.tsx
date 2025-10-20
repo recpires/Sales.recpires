@@ -1,27 +1,31 @@
 import React, { useState } from 'react';
-import { api } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import authService from '../services/authService';
+import { Button } from '../components/common';
 
-const RegisterPage = () => {
+type RegisterForm = {
+  username: string;
+  email: string;
+  password: string;
+  password2: string;
+  first_name: string;
+  last_name: string;
+};
+
+type RegisterErrors = {
+  username?: string;
+  email?: string;
+  password?: string;
+  password2?: string;
+  first_name?: string;
+  last_name?: string;
+  general?: string;
+};
+
+const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-
-  type RegisterForm = {
-    username: string;
-    email: string;
-    password: string;
-    password2: string;
-    first_name: string;
-    last_name: string;
-  };
-
-  type RegisterErrors = {
-    username?: string;
-    email?: string;
-    password?: string;
-    password2?: string;
-    first_name?: string;
-    last_name?: string;
-    general?: string;
-  };
+  const { t } = useTranslation();
 
   const [formData, setFormData] = useState<RegisterForm>({
     username: '',
@@ -35,48 +39,14 @@ const RegisterPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
-  const { t } = useTranslation();
-
-  const validateForm = () => {
-    const newErrors: {
-      username?: string;
-      email?: string;
-      password?: string;
-      password2?: string;
-      first_name?: string;
-      last_name?: string;
-    } = {};
-
-    if (!formData.username) {
-      newErrors.username = t('register.validation.username_required');
-    } else if (formData.username.length < 3) {
-      newErrors.username = t('register.validation.username_min');
-    }
-
-    if (!formData.email) {
-      newErrors.email = t('register.validation.email_required');
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = t('register.validation.email_invalid');
-    }
-
-    if (!formData.password) {
-      newErrors.password = t('register.validation.password_required');
-    } else if (formData.password.length < 6) {
-      newErrors.password = t('register.validation.password_min');
-    }
-
-const RegisterPage: React.FC = () => {
-  const [form, setForm] = useState<RegisterForm>({ name: '', email: '', password: '', passwordConfirm: '' });
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string[]>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setIsLoading(true);
     setErrors({});
 
     try {
@@ -104,19 +74,11 @@ const RegisterPage: React.FC = () => {
         if (errorData.password2) {
           setErrors((prev: RegisterErrors) => ({ ...prev, password2: Array.isArray(errorData.password2) ? errorData.password2[0] : errorData.password2 }));
         }
-
-      // Evitar acesso inseguro a error.config e headers
-      try {
-        const cfg = anyErr?.config;
-        if (cfg && typeof cfg === 'object') {
-          // apenas usar se necessário, por exemplo para debug
-          // console.debug('Failed request config', cfg);
-        }
-      } catch {
-        // ignore
+      } else {
+        setErrors({ general: t('register.error_general') || 'An error occurred during registration' });
       }
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
