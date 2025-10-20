@@ -20,10 +20,15 @@ class StoreViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """Define o owner e valida que o usuário ainda não tem loja."""
+        print(f"[DEBUG] User: {self.request.user}, Data: {serializer.validated_data}")
         if Store.objects.filter(owner=self.request.user).exists():
             from rest_framework.exceptions import ValidationError
-            raise ValidationError("Você já possui uma loja cadastrada.")
-        serializer.save(owner=self.request.user)
+            raise ValidationError({"detail": "Você já possui uma loja cadastrada."})
+        try:
+            serializer.save(owner=self.request.user)
+        except Exception as e:
+            print(f"[ERROR] {e}")
+            raise
 
     def get_queryset(self):
         """Cada usuário vê apenas sua própria loja."""
