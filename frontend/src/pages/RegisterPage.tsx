@@ -1,8 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '../components/common';
-import authService from '../services/authService';
+import React, { useState } from 'react';
+import { api } from '../services/api';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -68,32 +65,18 @@ const RegisterPage = () => {
       newErrors.password = t('register.validation.password_min');
     }
 
-    if (!formData.password2) {
-      newErrors.password2 = t('register.validation.password2_required');
-    } else if (formData.password !== formData.password2) {
-      newErrors.password2 = t('register.validation.password_mismatch');
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+const RegisterPage: React.FC = () => {
+  const [form, setForm] = useState<RegisterForm>({ name: '', email: '', password: '', passwordConfirm: '' });
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string[]>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev: RegisterForm) => ({ ...prev, [name]: value } as RegisterForm));
-    if (errors[name as keyof RegisterErrors]) {
-      setErrors((prev: RegisterErrors) => ({ ...prev, [name]: undefined }));
-    }
+    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validateForm()) {
-      return;
-    }
-
-    setIsLoading(true);
+    setLoading(true);
     setErrors({});
 
     try {
@@ -122,37 +105,20 @@ const RegisterPage = () => {
           setErrors((prev: RegisterErrors) => ({ ...prev, password2: Array.isArray(errorData.password2) ? errorData.password2[0] : errorData.password2 }));
         }
 
-        // Check for non-field errors or general error message
-        if (errorData.non_field_errors) {
-          setErrors((prev: RegisterErrors) => ({ ...prev, general: Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors[0] : errorData.non_field_errors }));
-        } else if (errorData.detail) {
-          setErrors((prev: RegisterErrors) => ({ ...prev, general: errorData.detail }));
-        } else if (!errorData.username && !errorData.email && !errorData.password && !errorData.password2) {
-          setErrors((prev: RegisterErrors) => ({ ...prev, general: t('register.messages.create_error') }));
+      // Evitar acesso inseguro a error.config e headers
+      try {
+        const cfg = anyErr?.config;
+        if (cfg && typeof cfg === 'object') {
+          // apenas usar se necessário, por exemplo para debug
+          // console.debug('Failed request config', cfg);
         }
-      } else if (error.request) {
-        setErrors((prev: RegisterErrors) => ({ ...prev, general: t('register.messages.server_unavailable') }));
-      } else {
-        setErrors((prev: RegisterErrors) => ({ ...prev, general: t('register.messages.unexpected') }));
+      } catch {
+        // ignore
       }
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    // Animação de entrada suave
-    const card = document.getElementById('register-card');
-    if (card) {
-      card.style.opacity = '0';
-      card.style.transform = 'translateY(30px) scale(0.95)';
-      setTimeout(() => {
-        card.style.transition = 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)';
-        card.style.opacity = '1';
-        card.style.transform = 'translateY(0) scale(1)';
-      }, 100);
-    }
-  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-orange-600 via-orange-500 to-amber-400 p-4">

@@ -21,8 +21,9 @@ export interface Product {
 }
 
 export interface CartItem {
-  productId: number;
-  variantId?: number | null;
+  id: string;
+  name: string;
+  price: number;
   quantity: number;
   product?: Product;
   variantSnapshot?: any | null;
@@ -83,6 +84,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       });
       return { ...state, items };
     }
+    case 'REMOVE_ITEM':
+      return { ...state, items: state.items.filter(i => i.id !== action.payload.id) };
     case 'CLEAR_CART':
       return { ...state, items: [] };
     case 'SET_CART':
