@@ -7,6 +7,14 @@ class StoreAdmin(admin.ModelAdmin):
     search_fields = ('name', 'owner__username')
     list_filter = ('is_active',)
     readonly_fields = ('created_at', 'updated_at')
+    autocomplete_fields = ('owner',)
+
+    def get_readonly_fields(self, request, obj=None):
+        # owner editável na criação, somente leitura na edição
+        ro = list(super().get_readonly_fields(request, obj))
+        if obj:
+            ro.append('owner')
+        return ro
 
 
 class ProductVariantInline(admin.TabularInline):
@@ -22,7 +30,7 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     readonly_fields = ('created_at', 'updated_at', 'total_stock')
     inlines = [ProductVariantInline]
-
+    list_select_related = ('store',)
 
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
@@ -30,21 +38,14 @@ class ProductVariantAdmin(admin.ModelAdmin):
     list_filter = ('product__store', 'color', 'size', 'is_active')
     search_fields = ('sku', 'product__name')
     readonly_fields = ('created_at', 'updated_at')
-
+    list_select_related = ('product',)
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
     readonly_fields = ('unit_price', 'get_subtotal')
     fields = ('variant', 'quantity', 'unit_price', 'get_subtotal')
-
-
-class OrderStatusUpdateInline(admin.TabularInline):
-    model = OrderStatusUpdate
-    extra = 0
-    readonly_fields = ('status', 'note', 'is_automatic', 'created_at')
-    can_delete = False
-
+    autocomplete_fields = ('variant',)
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
@@ -54,6 +55,7 @@ class OrderAdmin(admin.ModelAdmin):
     readonly_fields = ('total_amount', 'paid_at', 'created_at', 'updated_at')
     inlines = [OrderItemInline, OrderStatusUpdateInline]
     actions = ['action_mark_out_for_delivery', 'action_mark_delivered', 'action_mark_cancelled', 'action_mark_cod_paid']
+    list_select_related = ('store',)
 
     def action_mark_out_for_delivery(self, request, queryset):
         for order in queryset:
