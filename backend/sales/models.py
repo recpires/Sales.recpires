@@ -1,8 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal
-from django.db.models import Q
+from django.db.models import Q, Avg
 
 
 class Store(models.Model):
@@ -97,6 +97,17 @@ class Product(models.Model):
             return sum(v.stock for v in self.variants.filter(is_active=True))
         return self.stock
 
+    @property
+    def average_rating(self):
+        """Calculate average rating from reviews"""
+        avg = self.reviews.filter(is_approved=True).aggregate(Avg('rating'))['rating__avg']
+        return round(avg, 1) if avg else 0
+
+    @property
+    def review_count(self):
+        """Count approved reviews"""
+        return self.reviews.filter(is_approved=True).count()
+
 
 class ProductVariant(models.Model):
     """Variants for a product (different size/color/price/sku/stock)
@@ -159,6 +170,8 @@ class Order(models.Model):
     customer_email = models.EmailField()
     customer_phone = models.CharField(max_length=20, blank=True)
     shipping_address = models.TextField()
+    coupon = models.ForeignKey('Coupon', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
+    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
@@ -324,3 +337,149 @@ class OrderItem(models.Model):
             self.product.stock = models.F('stock') + qty
             self.product.save(update_fields=['stock'])
             self.product.refresh_from_db(fields=['stock'])
+
+
+class Category(models.Model):
+    """Model for product categories"""
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    image = models.ImageField(upload_to='categories/', blank=True, null=True)
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        related_name='children',
+        null=True,
+        blank=True
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Categories'
+
+    def __str__(self):
+        return self.name
+
+
+class ProductCategory(models.Model):
+    """Many-to-many relationship between Product and Category"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_categories')
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='product_categories')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['product', 'category']
+        verbose_name_plural = 'Product Categories'
+
+    def __str__(self):
+        return f"{self.product.name} - {self.category.name}"
+
+
+class Review(models.Model):
+    """Model for product reviews"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    title = models.CharField(max_length=200, blank=True)
+    comment = models.TextField(blank=True)
+    is_verified_purchase = models.BooleanField(default=False)
+    is_approved = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['product', 'user']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name} ({self.rating}★)"
+
+
+class Coupon(models.Model):
+    """Model for discount coupons"""
+    DISCOUNT_TYPE_CHOICES = [
+        ('percentage', 'Percentual'),
+        ('fixed', 'Valor Fixo'),
+    ]
+
+    code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+    discount_type = models.CharField(max_length=20, choices=DISCOUNT_TYPE_CHOICES, default='percentage')
+    discount_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))]
+    )
+    min_purchase_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal('0'))]
+    )
+    max_discount_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))]
+    )
+    usage_limit = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
+    usage_count = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+    valid_from = models.DateTimeField()
+    valid_until = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.code
+
+    def is_valid(self):
+        """Check if coupon is valid for use"""
+        from django.utils import timezone
+        now = timezone.now()
+
+        if not self.is_active:
+            return False, "Cupom inativo"
+
+        if now < self.valid_from:
+            return False, "Cupom ainda não válido"
+
+        if now > self.valid_until:
+            return False, "Cupom expirado"
+
+        if self.usage_limit and self.usage_count >= self.usage_limit:
+            return False, "Limite de uso atingido"
+
+        return True, "Cupom válido"
+
+    def calculate_discount(self, total_amount):
+        """Calculate discount amount based on total"""
+        if self.discount_type == 'percentage':
+            discount = total_amount * (self.discount_value / 100)
+            if self.max_discount_amount:
+                discount = min(discount, self.max_discount_amount)
+        else:
+            discount = self.discount_value
+
+        return min(discount, total_amount)
+
+
+class Wishlist(models.Model):
+    """Model for user wishlists"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wishlists')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='wishlists')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['user', 'product']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name}"

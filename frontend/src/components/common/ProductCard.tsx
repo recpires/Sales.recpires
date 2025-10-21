@@ -1,7 +1,8 @@
 import { FC, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Card, Tag, Typography, Modal, Select, InputNumber, Button } from 'antd';
-import { ShoppingCartOutlined, DeleteOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { Product } from '../../types/product';
 
 const { Text, Title } = Typography;
@@ -28,9 +29,15 @@ const colorMap: Record<string, string> = {
 
 export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDelete, isAdmin }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
+
+  const handleViewDetails = () => {
+    navigate(`/product/${product.id}`);
+  };
+
   const handleAddToCart = () => {
     if (product.variants && product.variants.length > 0) {
       setIsModalOpen(true);
@@ -58,6 +65,18 @@ export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDele
   };
 
   const actions = [];
+
+  // Ver detalhes sempre disponível
+  actions.push(
+    <div
+      key="view-details"
+      onClick={handleViewDetails}
+      className="flex items-center justify-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
+    >
+      <EyeOutlined />
+      <span>Ver Detalhes</span>
+    </div>
+  );
 
   if (!isAdmin && product.stock > 0) {
     actions.push(
