@@ -20,6 +20,19 @@ class StoreViewSet(viewsets.ModelViewSet):
     serializer_class = StoreSerializer
     permission_classes = [IsAuthenticated]
 
+    @action(detail=False, methods=['get'])
+    def my_store(self, request):
+        """Get the current user's store."""
+        try:
+            store = Store.objects.get(owner=request.user)
+            serializer = self.get_serializer(store)
+            return Response(serializer.data)
+        except Store.DoesNotExist:
+            return Response(
+                {"detail": "Você ainda não possui uma loja cadastrada."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
     def create(self, request, *args, **kwargs):
         """Override create para capturar erros de integridade."""
         # Verifica se já tem loja antes de tentar criar
@@ -28,7 +41,7 @@ class StoreViewSet(viewsets.ModelViewSet):
                 {"detail": "Você já possui uma loja cadastrada."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
@@ -84,11 +97,11 @@ class ProductViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_staff or user.is_superuser:
             return Product.objects.all().select_related('store').prefetch_related('variants')
-        try:
-            store = user.store
-            return Product.objects.filter(store=store).select_related('store').prefetch_related('variants')
-        except Store.DoesNotExist:
-            return Product.objects.none()
+        # Regular users can see all products (customer view)
+        if not hasattr(user, 'store'):
+            return Product.objects.all().select_related('store').prefetch_related('variants')
+        # Store owners see only their products
+        return Product.objects.filter(store=user.store).select_related('store').prefetch_related('variants')
 
     def perform_create(self, serializer):
         """Associa o produto à loja do usuário."""

@@ -272,6 +272,7 @@ const HomePage = () => {
         isOpen={isStoreSetupModalOpen}
         onClose={() => setIsStoreSetupModalOpen(false)}
         onSuccess={handleStoreSetupSuccess}
+        store={myStore}
       />
     </div>
   );
