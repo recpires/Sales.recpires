@@ -22,7 +22,6 @@ class StoreViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """Override create para capturar erros de integridade."""
-        # Verifica se já tem loja antes de tentar criar
         if Store.objects.filter(owner=request.user).exists():
             return Response(
                 {"detail": "Você já possui uma loja cadastrada."},
@@ -40,23 +39,16 @@ class StoreViewSet(viewsets.ModelViewSet):
                 {"detail": f"Erro de integridade: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        except ValidationError as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
         except Exception as e:
             return Response(
-                {"detail": f"Erro inesperado: {str(e)}"},
+                {"detail": f"Erro: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def perform_create(self, serializer):
-        """Define o owner como usuário autenticado."""
         serializer.save(owner=self.request.user)
 
     def get_queryset(self):
-        """Cada usuário vê apenas sua própria loja."""
         if self.request.user.is_staff or self.request.user.is_superuser:
             return Store.objects.all()
         return Store.objects.filter(owner=self.request.user)
@@ -69,18 +61,35 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def options(self, request, pk=None):
-        """Opções de variação disponíveis (cores, tamanhos, modelos) para o produto."""
+        """Retorna opções de variação disponíveis (cores, tamanhos, modelos)."""
         product = self.get_object()
         qs = product.variants.filter(is_active=True)
         data = {
-            'colors': list(qs.exclude(color__isnull=True).values_list('color', flat=True).distinct()),
-            'sizes': list(qs.exclude(size__isnull=True).values_list('size', flat=True).distinct()),
-            'models': list(qs.exclude(model__isnull=True).values_list('model', flat=True).distinct()),
+            'colors': list(qs.values_list('color', flat=True).distinct()),
+            'sizes': list(qs.values_list('size', flat=True).distinct()),
+            'models': list(qs.exclude(model='').values_list('model', flat=True).distinct()),
         }
         return Response(data)
 
+    @action(detail=True, methods=['post'])
+    def add_variant(self, request, pk=None):
+        """Adiciona variação via método adicionar_variacao."""
+        product = self.get_object()
+        try:
+            variant = product.adicionar_variacao(
+                cor=request.data.get('color'),
+                tamanho=request.data.get('size'),
+                quantidade=request.data.get('stock', 0),
+                preco=request.data.get('price'),
+                modelo=request.data.get('model', ''),
+                sku=request.data.get('sku')
+            )
+            serializer = ProductVariantSerializer(variant)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     def get_queryset(self):
-        """Cada usuário vê apenas produtos da sua loja (ou todos se admin)."""
         user = self.request.user
         if user.is_staff or user.is_superuser:
             return Product.objects.all().select_related('store').prefetch_related('variants')
@@ -91,7 +100,6 @@ class ProductViewSet(viewsets.ModelViewSet):
             return Product.objects.none()
 
     def perform_create(self, serializer):
-        """Associa o produto à loja do usuário."""
         try:
             store = self.request.user.store
         except Store.DoesNotExist:
@@ -99,8 +107,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer.save(store=store)
 
 
-class ProductVariantViewSet(viewsets.ReadOnlyModelViewSet):
-    """Lista/filtra variantes por produto, cor, tamanho, modelo, disponibilidade e preço."""
+class ProductVariantViewSet(viewsets.ModelViewSet):
     queryset = ProductVariant.objects.select_related('product').all()
     serializer_class = ProductVariantSerializer
     permission_classes = [IsAuthenticated]
@@ -156,23 +163,21 @@ class ProductVariantViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class OrderViewSet(viewsets.ModelViewSet):
-    queryset = Order.objects.all().select_related('store').prefetch_related('items__product', 'items__variant', 'status_updates')
+    queryset = Order.objects.all().select_related('store').prefetch_related('items__variant__product', 'status_updates')
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Cada usuário vê apenas pedidos da sua loja (ou todos se admin)."""
         user = self.request.user
         if user.is_staff or user.is_superuser:
-            return Order.objects.all().select_related('store').prefetch_related('items__product', 'items__variant', 'status_updates')
+            return Order.objects.all().select_related('store').prefetch_related('items__variant__product', 'status_updates')
         try:
             store = user.store
-            return Order.objects.filter(store=store).select_related('store').prefetch_related('items__product', 'items__variant', 'status_updates')
+            return Order.objects.filter(store=store).select_related('store').prefetch_related('items__variant__product', 'status_updates')
         except Store.DoesNotExist:
             return Order.objects.none()
 
     def perform_create(self, serializer):
-        """Associa o pedido à loja do usuário."""
         try:
             store = self.request.user.store
         except Store.DoesNotExist:
@@ -181,19 +186,17 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def set_status(self, request, pk=None):
-        """Atualiza o status do pedido e registra histórico."""
         order = self.get_object()
         new_status = request.data.get('status')
         note = request.data.get('note', '')
         try:
             order.set_status(new_status, note=note, automatic=False)
-            return Response({'status': order.status})
+            return Response({'status': order.status, 'status_display': order.get_status_display()})
         except ValueError as e:
             return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'])
     def mark_cod_paid(self, request, pk=None):
-        """Marca pagamento na entrega (COD) como pago."""
         order = self.get_object()
         try:
             order.mark_cod_paid()
@@ -203,17 +206,16 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 
 class OrderItemViewSet(viewsets.ModelViewSet):
-    queryset = OrderItem.objects.select_related('order', 'product', 'variant').all()
+    queryset = OrderItem.objects.select_related('order', 'variant__product').all()
     serializer_class = OrderItemSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """Cada usuário vê apenas itens de pedidos da sua loja."""
         user = self.request.user
         if user.is_staff or user.is_superuser:
-            return OrderItem.objects.select_related('order', 'product', 'variant').all()
+            return OrderItem.objects.select_related('order', 'variant__product').all()
         try:
             store = user.store
-            return OrderItem.objects.filter(order__store=store).select_related('order', 'product', 'variant')
+            return OrderItem.objects.filter(order__store=store).select_related('order', 'variant__product')
         except Store.DoesNotExist:
             return OrderItem.objects.none()
