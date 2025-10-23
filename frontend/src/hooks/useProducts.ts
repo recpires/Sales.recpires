@@ -1,41 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import productService from '../services/productService';
-import { Product, ProductCreateInput, ProductCreateInputWithoutImage } from '../types/product';
+import api from '../services/api';
+import { Product } from '../types/product';
+
+interface ProductsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Product[];
+}
 
 /**
  * Hook to fetch all products
  */
 export const useProducts = () => {
-  return useQuery({
+  return useQuery<ProductsResponse>({
     queryKey: ['products'],
-    queryFn: () => productService.getProducts(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-};
-
-/**
- * Hook to fetch a single product by ID
- */
-export const useProduct = (id: number) => {
-  return useQuery({
-    queryKey: ['products', id],
-    queryFn: () => productService.getProduct(id),
-    enabled: !!id,
-    staleTime: 5 * 60 * 1000,
-  });
-};
-
-/**
- * Hook to create a new product
- */
-export const useCreateProduct = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (data: ProductCreateInput) =>
-      productService.createProduct(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryFn: async () => {
+      const response = await api.get('/products/');
+      return response.data;
     },
   });
 };
@@ -47,26 +29,37 @@ export const useCreateProductWithImage = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ data, image }: { data: ProductCreateInputWithoutImage; image?: File }) =>
-      productService.createProductWithImage(data, image),
+    mutationFn: async ({ data, image }: { data: any; image?: File }) => {
+      const formData = new FormData();
+
+      // Append product data (excluding variants for FormData)
+      const { variants, ...productData } = data;
+      Object.keys(productData).forEach((key) => {
+        if (productData[key] !== undefined && productData[key] !== null) {
+          formData.append(key, productData[key]);
+        }
+      });
+
+      // Append variants as JSON if present
+      if (variants && Array.isArray(variants) && variants.length > 0) {
+        formData.append('variants', JSON.stringify(variants));
+      }
+
+      // Append image if provided
+      if (image) {
+        formData.append('image', image);
+      }
+
+      const response = await api.post('/products/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      return response.data;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-    },
-  });
-};
-
-/**
- * Hook to update a product
- */
-export const useUpdateProduct = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Product> }) =>
-      productService.updateProduct(id, data),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['products', variables.id] });
     },
   });
 };
@@ -78,7 +71,9 @@ export const useDeleteProduct = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: number) => productService.deleteProduct(id),
+    mutationFn: async (productId: number) => {
+      await api.delete(`/products/${productId}/`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
