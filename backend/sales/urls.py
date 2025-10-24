@@ -1,7 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import ProductViewSet, OrderViewSet, OrderItemViewSet, StoreViewSet, ProductVariantViewSet
+from .views import (
+    ProductViewSet, OrderViewSet, OrderItemViewSet, StoreViewSet, ProductVariantViewSet,
+    CategoryViewSet, ReviewViewSet, CouponViewSet, WishlistViewSet
+)
 from .auth_views import (
     RegisterView,
     LoginView,
@@ -16,6 +19,10 @@ router.register('products', ProductViewSet, basename='product')
 router.register('orders', OrderViewSet, basename='order')
 router.register('order-items', OrderItemViewSet, basename='orderitem')
 router.register('variants', ProductVariantViewSet, basename='variant')
+router.register('categories', CategoryViewSet, basename='category')
+router.register('reviews', ReviewViewSet, basename='review')
+router.register('coupons', CouponViewSet, basename='coupon')
+router.register('wishlist', WishlistViewSet, basename='wishlist')
 
 urlpatterns = [
     # API routes
