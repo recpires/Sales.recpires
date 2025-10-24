@@ -1,34 +1,13 @@
-import React, { createContext, useContext, useReducer, useEffect, Dispatch } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
+import { Product } from '../types/product';
 
-export interface ProductVariant {
-  id: number;
-  size?: string;
-  color?: string;
-  sku: string;
-  price: string;
-  stock: number;
-}
-
-export interface Product {
-  id: number;
-  name: string;
-  description?: string;
-  price: string;
-  sku: string;
-  stock: number;
-  image?: string;
-  variants?: ProductVariant[];
-}
-
-export interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
+interface CartItem {
   productId: number;
-  variantId?: number | null;
-  product?: Product;
-  variantSnapshot?: any | null;
+  variantId: number | null;
+  quantity: number;
+  price: number;
+  product: Product;
+  variantSnapshot: any | null;
 }
 
 interface CartState {
@@ -36,104 +15,144 @@ interface CartState {
 }
 
 type CartAction =
-  | { type: 'ADD_ITEM'; payload: CartItem }
-  | { type: 'REMOVE_ITEM'; payload: { productId: number; variantId?: number | null } }
-  | { type: 'SET_QUANTITY'; payload: { productId: number; variantId?: number | null; quantity: number } }
+  | { type: 'ADD_ITEM'; payload: { productId: number; variantId: number | null; quantity: number; product: Product; variantSnapshot: any | null } }
+  | { type: 'REMOVE_ITEM'; payload: { productId: number; variantId: number | null } }
+  | { type: 'UPDATE_QUANTITY'; payload: { productId: number; variantId: number | null; quantity: number } }
   | { type: 'CLEAR_CART' }
-  | { type: 'SET_CART'; payload: CartItem[] };
+  | { type: 'LOAD_CART'; payload: CartItem[] };
 
-interface CartContextType {
+const CartContext = createContext<{
   state: CartState;
-  dispatch: Dispatch<CartAction>;
-  getTotal: () => number;
-}
+  dispatch: React.Dispatch<CartAction>;
+} | undefined>(undefined);
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+const CART_STORAGE_KEY = 'shopping_cart';
 
-const initialState: CartState = {
-  items: [],
+const loadCartFromStorage = (): CartItem[] => {
+  try {
+    const stored = localStorage.getItem(CART_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('Error loading cart from storage:', error);
+  }
+  return [];
 };
 
-function cartReducer(state: CartState, action: CartAction): CartState {
+const saveCartToStorage = (items: CartItem[]) => {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  } catch (error) {
+    console.error('Error saving cart to storage:', error);
+  }
+};
+
+const cartReducer = (state: CartState, action: CartAction): CartState => {
+  let newState: CartState;
+
   switch (action.type) {
     case 'ADD_ITEM': {
-      const existingIndex = state.items.findIndex(
-        i => i.productId === action.payload.productId && i.variantId === action.payload.variantId
+      const { productId, variantId, quantity, product, variantSnapshot } = action.payload;
+      const existingItemIndex = state.items.findIndex(
+        (item) => item.productId === productId && item.variantId === variantId
       );
-      if (existingIndex >= 0) {
-        const items = [...state.items];
-        items[existingIndex] = {
-          ...items[existingIndex]!,
-          quantity: items[existingIndex]!.quantity + action.payload.quantity,
+
+      if (existingItemIndex > -1) {
+        const newItems = [...state.items];
+        newItems[existingItemIndex].quantity += quantity;
+        newState = { ...state, items: newItems };
+      } else {
+        // Get price from variant snapshot, first variant, or product
+        const firstVariant =
+          Array.isArray(product.variants) && product.variants.length > 0
+            ? product.variants[0]
+            : null;
+        const price = variantSnapshot?.price ?? firstVariant?.price ?? product.price ?? 0;
+
+        newState = {
+          ...state,
+          items: [
+            ...state.items,
+            {
+              productId,
+              variantId: variantId ?? null,
+              quantity,
+              price,
+              product,
+              variantSnapshot: variantSnapshot ?? null,
+            },
+          ],
         };
-        return { ...state, items };
       }
-      return { ...state, items: [...state.items, action.payload] };
+      saveCartToStorage(newState.items);
+      return newState;
     }
-    case 'REMOVE_ITEM':
-      return {
+
+    case 'REMOVE_ITEM': {
+      const { productId, variantId } = action.payload;
+      newState = {
         ...state,
         items: state.items.filter(
-          i => !(i.productId === action.payload.productId && i.variantId === action.payload.variantId)
+          (item) => !(item.productId === productId && item.variantId === variantId)
         ),
       };
-    case 'SET_QUANTITY': {
-      const items = state.items.map(i => {
-        if (i.productId === action.payload.productId && i.variantId === action.payload.variantId) {
-          return { ...i, quantity: action.payload.quantity };
-        }
-        return i;
-      });
-      return { ...state, items };
+      saveCartToStorage(newState.items);
+      return newState;
     }
+
+    case 'UPDATE_QUANTITY': {
+      const { productId, variantId, quantity } = action.payload;
+      if (quantity <= 0) {
+        newState = {
+          ...state,
+          items: state.items.filter(
+            (item) => !(item.productId === productId && item.variantId === variantId)
+          ),
+        };
+      } else {
+        newState = {
+          ...state,
+          items: state.items.map((item) =>
+            item.productId === productId && item.variantId === variantId
+              ? { ...item, quantity }
+              : item
+          ),
+        };
+      }
+      saveCartToStorage(newState.items);
+      return newState;
+    }
+
     case 'CLEAR_CART':
+      saveCartToStorage([]);
       return { ...state, items: [] };
-    case 'SET_CART':
+
+    case 'LOAD_CART':
       return { ...state, items: action.payload };
+
     default:
       return state;
   }
-}
-
-export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(cartReducer, initialState, () => {
-    try {
-      const raw = localStorage.getItem('cart');
-      return raw ? { items: JSON.parse(raw) as CartItem[] } : initialState;
-    } catch {
-      return initialState;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('cart', JSON.stringify(state.items));
-    } catch {
-      /* ignore storage errors */
-    }
-  }, [state.items]);
-
-  const getTotal = () => {
-    return state.items.reduce((total, item) => {
-      const product = item.product;
-      if (!product) return total;
-
-      const variant = product.variants?.find(v => v.id === item.variantId);
-      const unitPrice = variant ? Number(variant.price) : Number(product.price);
-
-      return total + unitPrice * item.quantity;
-    }, 0);
-  };
-
-  return (
-    <CartContext.Provider value={{ state, dispatch, getTotal }}>
-      {children}
-    </CartContext.Provider>
-  );
 };
 
-export const useCart = (): CartContextType => {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error('useCart must be used within CartProvider');
-  return ctx;
+export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [state, dispatch] = useReducer(cartReducer, { items: [] });
+
+  useEffect(() => {
+    const savedCart = loadCartFromStorage();
+    if (savedCart.length > 0) {
+      dispatch({ type: 'LOAD_CART', payload: savedCart });
+    }
+  }, []);
+
+  return <CartContext.Provider value={{ state, dispatch }}>{children}</CartContext.Provider>;
+};
+
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error('useCart must be used within a CartProvider');
+  }
+  return context;
 };

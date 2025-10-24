@@ -6,10 +6,22 @@ from .models import (
 )
 
 
+class StoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Store
+        fields = ['id', 'owner', 'name', 'description', 'phone', 'email', 'address', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
+
+
 class ProductVariantSerializer(serializers.ModelSerializer):
+    color_display = serializers.CharField(source='get_color_display', read_only=True)
+    
     class Meta:
         model = ProductVariant
-        fields = ['id', 'sku', 'price', 'color', 'size', 'model', 'stock', 'image', 'is_active', 'created_at', 'updated_at']
+        fields = [
+            'id', 'product', 'sku', 'color', 'color_display', 'size', 'model',
+            'stock', 'price', 'image', 'is_active', 'created_at', 'updated_at'
+        ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_image(self, obj):
@@ -24,6 +36,15 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     variants = ProductVariantSerializer(many=True, read_only=True)
+    total_stock = serializers.IntegerField(read_only=True)
+    
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'store', 'name', 'description', 'is_active', 'image',
+            'created_at', 'updated_at', 'variants', 'total_stock'
+        ]
+        read_only_fields = ['id', 'store', 'created_at', 'updated_at', 'total_stock']
     average_rating = serializers.ReadOnlyField()
     review_count = serializers.ReadOnlyField()
     categories = serializers.SerializerMethodField()
@@ -51,48 +72,58 @@ class OrderStatusUpdateSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    variant_details = ProductVariantSerializer(source='variant', read_only=True)
+    subtotal = serializers.DecimalField(source='get_subtotal', max_digits=10, decimal_places=2, read_only=True)
+    
     class Meta:
         model = OrderItem
-        fields = ['id', 'product', 'variant', 'quantity', 'unit_price']
-        read_only_fields = ['id']
+        fields = ['id', 'order', 'variant', 'variant_details', 'quantity', 'unit_price', 'subtotal']
+        read_only_fields = ['id', 'order', 'subtotal']
 
     def validate(self, attrs):
-        product = attrs.get('product') or getattr(self.instance, 'product', None)
-        variant = attrs.get('variant') or getattr(self.instance, 'variant', None)
-        if product and variant and variant.product_id != product.id:
-            raise serializers.ValidationError("A variação selecionada não pertence ao produto informado.")
-        # Se o produto tem variantes, a variante é obrigatória
-        if product and not variant and product.variants.exists():
-            raise serializers.ValidationError("Este produto possui variações. Selecione uma variação.")
+        variant = attrs.get('variant')
+        quantity = attrs.get('quantity', 1)
+        
+        # Verifica estoque disponível
+        if self.instance:
+            # Editando item existente
+            previous_qty = self.instance.quantity
+            delta = quantity - previous_qty
+            if delta > 0 and delta > variant.stock:
+                raise serializers.ValidationError(
+                    f"Estoque insuficiente. Disponível: {variant.stock}"
+                )
+        else:
+            # Novo item
+            if quantity > variant.stock:
+                raise serializers.ValidationError(
+                    f"Estoque insuficiente. Disponível: {variant.stock}"
+                )
+        
         return attrs
 
-    def create(self, validated_data):
-        # Preenche unit_price com preço da variante ou do produto, se não enviado
-        if not validated_data.get('unit_price'):
-            variant = validated_data.get('variant')
-            validated_data['unit_price'] = (variant.price if variant else validated_data['product'].price)
-        return super().create(validated_data)
 
-    def update(self, instance, validated_data):
-        if 'unit_price' not in validated_data or not validated_data.get('unit_price'):
-            variant = validated_data.get('variant', instance.variant)
-            product = validated_data.get('product', instance.product)
-            validated_data['unit_price'] = (variant.price if variant else product.price)
-        return super().update(instance, validated_data)
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderStatusUpdate
+        fields = ['id', 'order', 'status', 'note', 'is_automatic', 'created_at']
+        read_only_fields = ['id', 'order', 'created_at']
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True)
+    items = OrderItemSerializer(many=True, read_only=True)
     status_updates = OrderStatusUpdateSerializer(many=True, read_only=True)
-
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
     class Meta:
         model = Order
         fields = [
             'id', 'store', 'customer_name', 'customer_email', 'customer_phone',
-            'shipping_address', 'status', 'payment_method', 'payment_status', 'paid_at',
-            'total_amount', 'items', 'status_updates', 'created_at', 'updated_at'
+            'shipping_address', 'status', 'status_display', 'payment_method',
+            'payment_status', 'paid_at', 'total_amount', 'items', 'status_updates',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'total_amount', 'status_updates', 'paid_at', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'store', 'total_amount', 'paid_at', 'created_at', 'updated_at']
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
@@ -115,6 +146,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 OrderItem.objects.create(order=instance, **item)
             instance.calculate_total()
 
+        return instance
         return instance
 
 

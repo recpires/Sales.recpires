@@ -1,17 +1,12 @@
-export interface Product {
+export interface ProductVariant {
   id: number;
-  store: number | null;
-  store_name: string;
-  seller_name: string;
+  product: number;
   name: string;
-  description: string;
-  price: string;
-  color: string;
-  color_display: string;
-  size: string;
-  size_display: string;
-  stock: number;
   sku: string;
+  price: number;
+  stock: number;
+  created_at?: string;
+  updated_at?: string;
   is_active: boolean;
   image: string | null;
   created_at: string;
@@ -22,15 +17,19 @@ export interface Product {
   categories?: Category[];
 }
 
-export interface ProductVariant {
+export interface Product {
   id: number;
+  name: string;
+  description: string;
+  image?: string;
+  price?: number;
   sku: string;
-  price: string;
-  color?: string | null;
-  size?: string | null;
-  stock: number;
-  image?: string | null;
-  is_active?: boolean;
+  stock?: number;
+  category: string;
+  store: number;
+  created_at?: string;
+  updated_at?: string;
+  variants?: ProductVariant[];
 }
 
 export interface Category {

@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Alert, Spin, Empty, Modal, Button, message, Input } from 'antd';
+import { Button, Input, Alert, Empty, Spin, Modal, message } from 'antd';
 import { PlusOutlined, SearchOutlined, ShopOutlined } from '@ant-design/icons';
-import { NavBar } from '../components/navbar';
-import { Aside } from '../components/aside';
+import NavBar from '../components/navbar/NavBar';
+import Aside from '../components/aside/Aside';
+import { ProductCard } from '../components/common/ProductCard';
+import ProductForm from '../components/common/ProductForm';
+import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
+import StoreSetupModal from '../components/common/StoreSetupModal';
 import { useCart } from '../context/CartContext';
-import authService from '../services/authService';
+import { authService } from '../services/authService';
 import { useProducts, useCreateProductWithImage, useDeleteProduct } from '../hooks/useProducts';
 import { useMyStore } from '../hooks/useStore';
-import { ProductCard } from '../components/common/ProductCard';
-import { ProductForm } from '../components/common/ProductForm';
-import { ConfirmDeleteModal } from '../components/common/ConfirmDeleteModal';
-import { StoreSetupModal } from '../components/common/StoreSetupModal';
 import { Product } from '../types/product';
 
 const HomePage = () => {
@@ -31,17 +31,35 @@ const HomePage = () => {
 
   // Auto-open store setup modal if admin doesn't have a store
   useEffect(() => {
-    if (isAdmin && !isLoadingStore && !hasStore && storeError) {
+    const err = storeError as any;
+    const isNotFound = err?.response?.status === 404 || err?.status === 404;
+    if (isAdmin && !isLoadingStore && !hasStore && isNotFound) {
       setIsStoreSetupModalOpen(true);
     }
   }, [isAdmin, isLoadingStore, hasStore, storeError]);
 
   // Filtra produtos baseado no termo de pesquisa
-  const products = allProducts.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.sku ?? '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducts = allProducts.filter((product) => {
+    const q = searchTerm.toLowerCase();
+    if (!q) return true;
+    const matchesName = product.name.toLowerCase().includes(q);
+    const matchesDesc = product.description?.toLowerCase().includes(q);
+    const matchesSku = (product.sku ?? '').toLowerCase().includes(q);
+    const matchesVariantSku =
+      Array.isArray(product.variants) &&
+      product.variants.some((v: any) => (v.sku ?? '').toLowerCase().includes(q));
+    return matchesName || matchesDesc || matchesSku || matchesVariantSku;
+  });
+
+  // Normalize product objects so UI code that expects price/stock continues working
+  const normalizedProducts = filteredProducts.map((p: any) => {
+    const firstVariant = Array.isArray(p.variants) && p.variants.length > 0 ? p.variants[0] : null;
+    return {
+      ...p,
+      price: p.price ?? firstVariant?.price ?? 0,
+      stock: p.stock ?? firstVariant?.stock ?? 0,
+    };
+  });
 
   const createProductMutation = useCreateProductWithImage();
   const deleteProductMutation = useDeleteProduct();
@@ -52,13 +70,22 @@ const HomePage = () => {
 
   const { dispatch } = useCart();
 
-  const handleAddToCart = (data: { product: Product; variantId?: number | null; quantity?: number; variantSnapshot?: any | null }) => {
-    // adiciona o item (produto + variante opcional) ao carrinho
+  const handleAddToCart = (data: {
+    product: Product;
+    variantId?: number | null;
+    quantity?: number;
+    variantSnapshot?: any | null;
+  }) => {
     try {
       const product = data.product;
       const variantId = data.variantId ?? null;
       const quantity = data.quantity ?? 1;
-  dispatch({ type: 'ADD_ITEM', payload: { productId: product.id, variantId, quantity, product, variantSnapshot: (data as any).variantSnapshot ?? null } });
+      const variantSnapshot = data.variantSnapshot ?? null;
+
+      dispatch({
+        type: 'ADD_ITEM',
+        payload: { productId: product.id, variantId, quantity, product, variantSnapshot },
+      });
       message.success('Produto adicionado ao carrinho');
     } catch (err) {
       message.error('Erro ao adicionar ao carrinho');
@@ -101,6 +128,7 @@ const HomePage = () => {
 
   const handleStoreSetupSuccess = () => {
     message.success('Loja configurada! Agora você pode criar produtos.');
+    setIsStoreSetupModalOpen(false);
   };
 
   return (
@@ -134,11 +162,9 @@ const HomePage = () => {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    Olá, {user?.first_name || user?.username || 'User'}!
+                    Olá, {user?.username || 'Admin'}!
                   </h1>
-                  <p className="text-gray-600">
-                    {hasStore ? 'Veja todos os produtos disponíveis' : 'Configure sua loja para começar'}
-                  </p>
+                  <p className="text-gray-600">Gerencie seus produtos e vendas</p>
                 </div>
                 {hasStore && (
                   <Button
@@ -151,7 +177,7 @@ const HomePage = () => {
                   </Button>
                 )}
               </div>
-                <Input
+              <Input
                 size="large"
                 placeholder="Buscar produtos por nome, descrição ou SKU..."
                 prefix={<SearchOutlined className="text-gray-400" />}
@@ -169,11 +195,9 @@ const HomePage = () => {
                   🔥 Ofertas Imperdíveis para Você!
                 </h1>
                 <p className="text-white text-lg font-medium mb-2">
-                  Olá, {user?.first_name || user?.username || 'Cliente'}!
+                  Olá, {user?.username || 'Visitante'}!
                 </p>
-                <p className="text-white/90">
-                  Aproveite os melhores preços e ofertas especiais
-                </p>
+                <p className="text-white/90">Aproveite os melhores preços e ofertas especiais</p>
               </div>
 
               {/* Campo de Pesquisa */}
@@ -222,14 +246,14 @@ const HomePage = () => {
               type="error"
               showIcon
             />
-          ) : products.length === 0 ? (
+          ) : normalizedProducts.length === 0 ? (
             <Empty
               description="Nenhum produto encontrado"
               className="bg-white rounded-lg shadow-md p-8"
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {products.map((product) => (
+              {normalizedProducts.map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
@@ -249,7 +273,8 @@ const HomePage = () => {
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         footer={null}
-        width={600}
+        width={800}
+        destroyOnClose
       >
         <ProductForm
           onSubmit={handleCreateProduct}
