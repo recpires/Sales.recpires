@@ -11,6 +11,8 @@ import SettingsPage from './pages/SettingsPage';
 import CheckoutPage from './pages/CheckoutPage';
 import CartPage from './pages/CartPage';
 import OrderHistoryPage from './pages/OrderHistoryPage';
+import ProductDetailPage from './pages/ProductDetailPage';
+import WishlistPage from './pages/WishlistPage';
 import authService from './services/authService';
 import { CartProvider } from './context/CartContext';
 
@@ -88,6 +90,14 @@ function App() {
             <Route
               path="/orders"
               element={isLoggedIn ? <OrderHistoryPage /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/product/:id"
+              element={isLoggedIn ? <ProductDetailPage /> : <Navigate to="/" />}
+            />
+            <Route
+              path="/wishlist"
+              element={isLoggedIn ? <WishlistPage /> : <Navigate to="/" />}
             />
           </Routes>
         </BrowserRouter>

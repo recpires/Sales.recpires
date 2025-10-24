@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Store, Product, ProductVariant, Order, OrderItem, OrderStatusUpdate
+from .models import (
+    Store, Product, ProductVariant, Order, OrderItem, OrderStatusUpdate,
+    Category, ProductCategory, Review, Coupon, Wishlist
+)
 
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
@@ -76,3 +79,49 @@ class OrderAdmin(admin.ModelAdmin):
         for order in queryset.filter(payment_method='cod'):
             order.mark_cod_paid()
     action_mark_cod_paid.short_description = 'Marcar COD como pago'
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'parent', 'is_active', 'created_at')
+    list_filter = ('is_active', 'parent')
+    search_fields = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
+
+
+@admin.register(ProductCategory)
+class ProductCategoryAdmin(admin.ModelAdmin):
+    list_display = ('product', 'category', 'created_at')
+    list_filter = ('category',)
+    search_fields = ('product__name', 'category__name')
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ('product', 'user', 'rating', 'is_verified_purchase', 'is_approved', 'created_at')
+    list_filter = ('rating', 'is_verified_purchase', 'is_approved', 'created_at')
+    search_fields = ('product__name', 'user__username', 'title', 'comment')
+    actions = ['approve_reviews', 'unapprove_reviews']
+
+    def approve_reviews(self, request, queryset):
+        queryset.update(is_approved=True)
+    approve_reviews.short_description = 'Aprovar avaliações selecionadas'
+
+    def unapprove_reviews(self, request, queryset):
+        queryset.update(is_approved=False)
+    unapprove_reviews.short_description = 'Desaprovar avaliações selecionadas'
+
+
+@admin.register(Coupon)
+class CouponAdmin(admin.ModelAdmin):
+    list_display = ('code', 'discount_type', 'discount_value', 'usage_count', 'usage_limit', 'is_active', 'valid_from', 'valid_until')
+    list_filter = ('discount_type', 'is_active', 'valid_from', 'valid_until')
+    search_fields = ('code', 'description')
+    readonly_fields = ('usage_count',)
+
+
+@admin.register(Wishlist)
+class WishlistAdmin(admin.ModelAdmin):
+    list_display = ('user', 'product', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('user__username', 'product__name')

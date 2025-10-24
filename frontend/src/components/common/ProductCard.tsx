@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Card, Button, Select, Tag } from 'antd';
 import { ShoppingCartOutlined, DeleteOutlined } from '@ant-design/icons';
+import { FC, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { Card, Tag, Typography, Modal, Select, InputNumber, Button } from 'antd';
+import { ShoppingCartOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { Product } from '../../types/product';
 
 const { Option } = Select;
@@ -24,6 +29,35 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isAdmin,
 }) => {
   const [selectedVariant, setSelectedVariant] = useState<any>(null);
+const colorMap: Record<string, string> = {
+  red: '#f5222d',
+  blue: '#1890ff',
+  green: '#52c41a',
+  black: '#000000',
+  white: '#ffffff',
+  yellow: '#faad14',
+  pink: '#eb2f96',
+  purple: '#722ed1',
+  orange: '#fa8c16',
+  gray: '#8c8c8c',
+};
+
+export const ProductCard: FC<ProductCardProps> = ({ product, onAddToCart, onDelete, isAdmin }) => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<number | null>(null);
+  const [quantity, setQuantity] = useState(1);
+
+  const handleViewDetails = () => {
+    navigate(`/product/${product.id}`);
+  };
+
+  const handleAddToCart = () => {
+    if (product.variants && product.variants.length > 0) {
+      setIsModalOpen(true);
+      return;
+    }
 
   const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
   const displayPrice = selectedVariant?.price ?? product.price ?? 0;
@@ -40,6 +74,52 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     const variant = product.variants?.find((v: any) => v.id === value);
     setSelectedVariant(variant || null);
   };
+
+  const actions = [];
+
+  // Ver detalhes sempre disponível
+  actions.push(
+    <div
+      key="view-details"
+      onClick={handleViewDetails}
+      className="flex items-center justify-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
+    >
+      <EyeOutlined />
+      <span>Ver Detalhes</span>
+    </div>
+  );
+
+  if (!isAdmin && product.stock > 0) {
+    actions.push(
+        <div
+        key="add-to-cart"
+        onClick={handleAddToCart}
+        className="flex items-center justify-center gap-2 cursor-pointer hover:text-blue-600 transition-colors"
+      >
+        <ShoppingCartOutlined />
+        <span>{t('product.add_to_cart')}</span>
+      </div>
+    );
+  }
+
+  if (isAdmin) {
+    actions.push(
+        <div
+        key="delete"
+        onClick={handleDelete}
+        className="flex items-center justify-center gap-2 cursor-pointer bg-red-600 text-black hover:text-white transition-colors rounded-full px-4 py-2 shadow-md hover:shadow-lg"
+      >
+        <DeleteOutlined />
+        <span>{t('product.delete')}</span>
+      </div>
+    );
+  }
+
+  // Simula desconto aleatório para usuário comum
+  const randomDiscount = !isAdmin && product.stock > 0 ? Math.floor(Math.random() * 50) + 10 : 0;
+  const hasDiscount = randomDiscount > 0;
+  const originalPrice = hasDiscount ? parseFloat(product.price) * (1 + randomDiscount / 100) : parseFloat(product.price);
+  const discountedPrice = parseFloat(product.price);
 
   return (
     <Card
