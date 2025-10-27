@@ -4,6 +4,7 @@ from .models import (
     Category, ProductCategory, Review, Coupon, Wishlist
 )
 
+
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
     list_display = ('name', 'owner', 'is_active', 'created_at')
@@ -13,7 +14,6 @@ class StoreAdmin(admin.ModelAdmin):
     autocomplete_fields = ('owner',)
 
     def get_readonly_fields(self, request, obj=None):
-        # owner editável na criação, somente leitura na edição
         ro = list(super().get_readonly_fields(request, obj))
         if obj:
             ro.append('owner')
@@ -24,6 +24,7 @@ class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     extra = 0
     fields = ('sku', 'color', 'size', 'model', 'stock', 'price', 'is_active')
+    autocomplete_fields = ('product',)
 
 
 @admin.register(Product)
@@ -35,6 +36,7 @@ class ProductAdmin(admin.ModelAdmin):
     inlines = [ProductVariantInline]
     list_select_related = ('store',)
 
+
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
     list_display = ('product', 'color', 'size', 'model', 'stock', 'price', 'is_active')
@@ -42,6 +44,8 @@ class ProductVariantAdmin(admin.ModelAdmin):
     search_fields = ('sku', 'product__name')
     readonly_fields = ('created_at', 'updated_at')
     list_select_related = ('product',)
+    autocomplete_fields = ('product',)
+
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
@@ -49,6 +53,14 @@ class OrderItemInline(admin.TabularInline):
     readonly_fields = ('unit_price', 'get_subtotal')
     fields = ('variant', 'quantity', 'unit_price', 'get_subtotal')
     autocomplete_fields = ('variant',)
+
+
+class OrderStatusUpdateInline(admin.TabularInline):
+    model = OrderStatusUpdate
+    extra = 0
+    readonly_fields = ('status', 'note', 'is_automatic', 'created_at')
+    can_delete = False
+
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
@@ -83,45 +95,33 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'slug', 'parent', 'is_active', 'created_at')
-    list_filter = ('is_active', 'parent')
-    search_fields = ('name', 'slug')
-    prepopulated_fields = {'slug': ('name',)}
+    list_display = ('name',)
+    search_fields = ('name',)
 
 
 @admin.register(ProductCategory)
 class ProductCategoryAdmin(admin.ModelAdmin):
-    list_display = ('product', 'category', 'created_at')
-    list_filter = ('category',)
-    search_fields = ('product__name', 'category__name')
+    list_display = ('product', 'category')
+    autocomplete_fields = ('product', 'category')
 
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ('product', 'user', 'rating', 'is_verified_purchase', 'is_approved', 'created_at')
-    list_filter = ('rating', 'is_verified_purchase', 'is_approved', 'created_at')
-    search_fields = ('product__name', 'user__username', 'title', 'comment')
-    actions = ['approve_reviews', 'unapprove_reviews']
-
-    def approve_reviews(self, request, queryset):
-        queryset.update(is_approved=True)
-    approve_reviews.short_description = 'Aprovar avaliações selecionadas'
-
-    def unapprove_reviews(self, request, queryset):
-        queryset.update(is_approved=False)
-    unapprove_reviews.short_description = 'Desaprovar avaliações selecionadas'
+    list_display = ('product', 'user', 'rating', 'is_approved', 'created_at')
+    list_filter = ('is_approved',)
+    search_fields = ('product__name', 'user__username')
+    readonly_fields = ('created_at',)
 
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
-    list_display = ('code', 'discount_type', 'discount_value', 'usage_count', 'usage_limit', 'is_active', 'valid_from', 'valid_until')
-    list_filter = ('discount_type', 'is_active', 'valid_from', 'valid_until')
-    search_fields = ('code', 'description')
-    readonly_fields = ('usage_count',)
+    list_display = ('code', 'discount_percent', 'is_active', 'valid_from', 'valid_to')
+    list_filter = ('is_active',)
+    search_fields = ('code',)
 
 
 @admin.register(Wishlist)
 class WishlistAdmin(admin.ModelAdmin):
     list_display = ('user', 'product', 'created_at')
-    list_filter = ('created_at',)
     search_fields = ('user__username', 'product__name')
+    autocomplete_fields = ('user', 'product')
