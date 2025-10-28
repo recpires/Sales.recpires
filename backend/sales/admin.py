@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Store, Product, ProductVariant, Order, OrderItem, OrderStatusUpdate,
-    Category, ProductCategory, Review, Coupon, Wishlist
+    Category, Review, Coupon, Wishlist # <--- CORREÇÃO: Removido 'ProductCategory'
 )
 
 
@@ -24,7 +24,7 @@ class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     extra = 0
     fields = ('sku', 'color', 'size', 'model', 'stock', 'price', 'is_active')
-    autocomplete_fields = ('product',)
+    # <--- CORREÇÃO: Removido 'autocomplete_fields' de 'product' (desnecessário em inline)
 
 
 @admin.register(Product)
@@ -35,6 +35,8 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at', 'total_stock')
     inlines = [ProductVariantInline]
     list_select_related = ('store',)
+    # <--- MELHORIA: Adicionado filtro horizontal para o campo 'categories'
+    filter_horizontal = ('categories',)
 
 
 @admin.register(ProductVariant)
@@ -50,9 +52,15 @@ class ProductVariantAdmin(admin.ModelAdmin):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
+    # <--- CORREÇÃO: 'get_subtotal' é um método, não um campo. Deve ir apenas em readonly_fields.
+    fields = ('variant', 'quantity', 'unit_price')
     readonly_fields = ('unit_price', 'get_subtotal')
-    fields = ('variant', 'quantity', 'unit_price', 'get_subtotal')
     autocomplete_fields = ('variant',)
+
+    # Adiciona 'get_subtotal' à exibição
+    def get_subtotal(self, obj):
+        return obj.get_subtotal()
+    get_subtotal.short_description = 'Subtotal'
 
 
 class OrderStatusUpdateInline(admin.TabularInline):
@@ -60,6 +68,8 @@ class OrderStatusUpdateInline(admin.TabularInline):
     extra = 0
     readonly_fields = ('status', 'note', 'is_automatic', 'created_at')
     can_delete = False
+    # Não permitir adicionar novos status por aqui (deve ser via actions)
+    can_add = False 
 
 
 @admin.register(Order)
@@ -88,21 +98,24 @@ class OrderAdmin(admin.ModelAdmin):
     action_mark_cancelled.short_description = 'Marcar como "Cancelado"'
 
     def action_mark_cod_paid(self, request, queryset):
-        for order in queryset.filter(payment_method='cod'):
+        count = 0
+        for order in queryset.filter(payment_method='cod', payment_status='pending'):
             order.mark_cod_paid()
+            count += 1
+        self.message_user(request, f"{count} pedidos COD marcados como pagos.")
     action_mark_cod_paid.short_description = 'Marcar COD como pago'
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name',)
+    list_display = ('name', 'slug')
     search_fields = ('name',)
+    # <--- MELHORIA: Auto-preencher o slug a partir do nome
+    prepopulated_fields = {'slug': ('name',)}
 
 
-@admin.register(ProductCategory)
-class ProductCategoryAdmin(admin.ModelAdmin):
-    list_display = ('product', 'category')
-    autocomplete_fields = ('product', 'category')
+# <--- CORREÇÃO: Removido 'ProductCategoryAdmin' pois o model foi excluído
+# (agora é um ManyToManyField direto em Product)
 
 
 @admin.register(Review)
@@ -111,12 +124,14 @@ class ReviewAdmin(admin.ModelAdmin):
     list_filter = ('is_approved',)
     search_fields = ('product__name', 'user__username')
     readonly_fields = ('created_at',)
+    autocomplete_fields = ('product', 'user') # Adicionado autocomplete
 
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
-    list_display = ('code', 'discount_percent', 'is_active', 'valid_from', 'valid_to')
-    list_filter = ('is_active',)
+    # <--- CORREÇÃO: Campos não existiam ('discount_percent', 'active', 'valid_to')
+    list_display = ('code', 'discount_type', 'discount_value', 'is_active', 'valid_until', 'usage_count')
+    list_filter = ('is_active', 'discount_type')
     search_fields = ('code',)
 
 

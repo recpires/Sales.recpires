@@ -1,6 +1,8 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+# CORREÇÃO: Importar o 'nested' router
+from rest_framework_nested import routers
 from rest_framework_simplejwt.views import TokenRefreshView
+
 from .views import (
     ProductViewSet, OrderViewSet, OrderItemViewSet, StoreViewSet, ProductVariantViewSet,
     CategoryViewSet, ReviewViewSet, CouponViewSet, WishlistViewSet
@@ -13,20 +15,36 @@ from .auth_views import (
     ChangePasswordView
 )
 
-router = DefaultRouter()
+# 1. Crie o router principal (apenas para os "pais")
+router = routers.DefaultRouter()
 router.register('stores', StoreViewSet, basename='store')
 router.register('products', ProductViewSet, basename='product')
 router.register('orders', OrderViewSet, basename='order')
-router.register('order-items', OrderItemViewSet, basename='orderitem')
-router.register('variants', ProductVariantViewSet, basename='variant')
 router.register('categories', CategoryViewSet, basename='category')
-router.register('reviews', ReviewViewSet, basename='review')
 router.register('coupons', CouponViewSet, basename='coupon')
 router.register('wishlist', WishlistViewSet, basename='wishlist')
 
+# CORREÇÃO: Removidas as rotas globais para 'order-items', 'variants', e 'reviews'
+
+# 2. Crie um router aninhado para /products/
+products_router = routers.NestedDefaultRouter(router, 'products', lookup='product')
+# Isso cria: /products/{product_pk}/variants/
+products_router.register('variants', ProductVariantViewSet, basename='product-variants')
+# Isso cria: /products/{product_pk}/reviews/
+products_router.register('reviews', ReviewViewSet, basename='product-reviews')
+
+# 3. Crie um router aninhado para /orders/
+orders_router = routers.NestedDefaultRouter(router, 'orders', lookup='order')
+# Isso cria: /orders/{order_pk}/items/
+orders_router.register('items', OrderItemViewSet, basename='order-items')
+
+
 urlpatterns = [
     # API routes
-    path('', include(router.urls)),
+    # MELHORIA: Prefixar a API com 'api/' é uma boa prática
+    path('api/', include(router.urls)),
+    path('api/', include(products_router.urls)),
+    path('api/', include(orders_router.urls)),
 
     # Authentication routes
     path('auth/register/', RegisterView.as_view(), name='register'),
