@@ -1,11 +1,26 @@
-import React from 'react';
-import { Card, Typography, Button, List, InputNumber, Empty, Row, Col, Divider, Tag } from 'antd';
-import { ShoppingCartOutlined, DeleteOutlined, ArrowRightOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
-import { useSpring, animated } from 'react-spring';
-import { useCart } from '../context/CartContext';
-import { useTranslation } from 'react-i18next';
-import { NavBar } from '../components/navbar';
+import React from "react";
+import {
+  Card,
+  Typography,
+  Button,
+  List,
+  InputNumber,
+  Empty,
+  Row,
+  Col,
+  Divider,
+  Tag,
+} from "antd";
+import {
+  ShoppingCartOutlined,
+  DeleteOutlined,
+  ArrowRightOutlined,
+} from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
+import { useSpring, animated } from "react-spring";
+import { useCart } from "../context/CartContext";
+import { useTranslation } from "react-i18next";
+import { NavBar } from "../components/navbar";
 
 const { Title, Text } = Typography;
 
@@ -16,17 +31,17 @@ const CartPage: React.FC = () => {
 
   // Animação de fade-in
   const fadeIn = useSpring({
-    from: { opacity: 0, transform: 'translateY(20px)' },
-    to: { opacity: 1, transform: 'translateY(0px)' },
+    from: { opacity: 0, transform: "translateY(20px)" },
+    to: { opacity: 1, transform: "translateY(0px)" },
     config: { tension: 280, friction: 60 },
   });
 
   const handleContinueShopping = () => {
-    navigate('/home');
+    navigate("/home");
   };
 
   const handleProceedToShipping = () => {
-    navigate('/checkout');
+    navigate("/checkout");
   };
 
   if (state.items.length === 0) {
@@ -37,7 +52,11 @@ const CartPage: React.FC = () => {
           <animated.div style={fadeIn}>
             <Card className="max-w-2xl mx-auto text-center py-12">
               <Empty
-                image={<ShoppingCartOutlined style={{ fontSize: 120, color: '#d9d9d9' }} />}
+                image={
+                  <ShoppingCartOutlined
+                    style={{ fontSize: 120, color: "#d9d9d9" }}
+                  />
+                }
                 description={
                   <div>
                     <Title level={3}>Seu carrinho está vazio</Title>
@@ -77,14 +96,22 @@ const CartPage: React.FC = () => {
             {/* Lista de Produtos */}
             <Col xs={24} lg={16}>
               <Card>
-                <Title level={4}>Itens no Carrinho ({state.items.length})</Title>
+                <Title level={4}>
+                  Itens no Carrinho ({state.items.length})
+                </Title>
                 <List
                   itemLayout="horizontal"
                   dataSource={state.items}
                   renderItem={(item) => {
                     const product = item.product;
-                    const variant = product?.variants?.find((v) => v.id === item.variantId) ?? null;
-                    const unitPrice = variant ? Number(variant.price) : product ? Number(product.price) : 0;
+                    const variant =
+                      product?.variants?.find((v) => v.id === item.variantId) ??
+                      null;
+                    const unitPrice = variant
+                      ? Number(variant.price)
+                      : product
+                      ? Number(product.price)
+                      : 0;
                     const subtotal = unitPrice * item.quantity;
 
                     return (
@@ -98,8 +125,11 @@ const CartPage: React.FC = () => {
                             icon={<DeleteOutlined />}
                             onClick={() =>
                               dispatch({
-                                type: 'REMOVE_ITEM',
-                                payload: { productId: item.productId, variantId: item.variantId },
+                                type: "REMOVE_ITEM",
+                                payload: {
+                                  productId: item.productId,
+                                  variantId: item.variantId,
+                                },
                               })
                             }
                           >
@@ -116,9 +146,9 @@ const CartPage: React.FC = () => {
                                 style={{
                                   width: 100,
                                   height: 100,
-                                  objectFit: 'cover',
+                                  objectFit: "cover",
                                   borderRadius: 8,
-                                  border: '1px solid #f0f0f0',
+                                  border: "1px solid #f0f0f0",
                                 }}
                               />
                             ) : (
@@ -126,10 +156,11 @@ const CartPage: React.FC = () => {
                                 style={{
                                   width: 100,
                                   height: 100,
-                                  background: 'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
+                                  background:
+                                    "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
                                   borderRadius: 8,
                                   fontSize: 40,
                                 }}
@@ -157,7 +188,8 @@ const CartPage: React.FC = () => {
                               {variant && (
                                 <div className="mb-2">
                                   <Text type="secondary" className="text-sm">
-                                    Variante: {variant.size || ''} {variant.color ? `• ${variant.color}` : ''}
+                                    Variante: {variant.size || ""}{" "}
+                                    {variant.color ? `• ${variant.color}` : ""}
                                   </Text>
                                   <br />
                                   <Text type="secondary" className="text-xs">
@@ -171,12 +203,18 @@ const CartPage: React.FC = () => {
                                     Preço unitário:
                                   </Text>
                                   <br />
-                                  <Text strong style={{ fontSize: 18, color: '#52c41a' }}>
+                                  <Text
+                                    strong
+                                    style={{ fontSize: 18, color: "#52c41a" }}
+                                  >
                                     R$ {unitPrice.toFixed(2)}
                                   </Text>
                                 </div>
                                 <div>
-                                  <Text type="secondary" className="text-sm block mb-1">
+                                  <Text
+                                    type="secondary"
+                                    className="text-sm block mb-1"
+                                  >
                                     Quantidade:
                                   </Text>
                                   <InputNumber
@@ -185,7 +223,7 @@ const CartPage: React.FC = () => {
                                     value={item.quantity}
                                     onChange={(val: number | null) =>
                                       dispatch({
-                                        type: 'SET_QUANTITY',
+                                        type: "SET_QUANTITY",
                                         payload: {
                                           productId: item.productId,
                                           variantId: item.variantId,
@@ -201,7 +239,10 @@ const CartPage: React.FC = () => {
                                     Subtotal:
                                   </Text>
                                   <br />
-                                  <Text strong style={{ fontSize: 20, color: '#1890ff' }}>
+                                  <Text
+                                    strong
+                                    style={{ fontSize: 20, color: "#1890ff" }}
+                                  >
                                     R$ {subtotal.toFixed(2)}
                                   </Text>
                                 </div>
@@ -225,7 +266,10 @@ const CartPage: React.FC = () => {
                 <div className="space-y-4">
                   <Row justify="space-between">
                     <Col>
-                      <Text>Subtotal ({state.items.length} {state.items.length === 1 ? 'item' : 'itens'}):</Text>
+                      <Text>
+                        Subtotal ({state.items.length}{" "}
+                        {state.items.length === 1 ? "item" : "itens"}):
+                      </Text>
                     </Col>
                     <Col>
                       <Text strong style={{ fontSize: 16 }}>
@@ -252,7 +296,7 @@ const CartPage: React.FC = () => {
                       </Text>
                     </Col>
                     <Col>
-                      <Text strong style={{ fontSize: 24, color: '#52c41a' }}>
+                      <Text strong style={{ fontSize: 24, color: "#52c41a" }}>
                         R$ {getTotal().toFixed(2)}
                       </Text>
                     </Col>
