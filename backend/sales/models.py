@@ -48,21 +48,56 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-# --- Model de Produto (Principal) ---
-class Product(models.Model):
-    # Choices movidos para fora para facilitar referência, mas podem ficar aqui.
-    COLOR_CHOICES = [
-        ('red', 'Vermelho'), ('blue', 'Azul'), ('green', 'Verde'), ('black', 'Preto'),
-        ('white', 'Branco'), ('yellow', 'Amarelo'), ('pink', 'Rosa'), ('purple', 'Roxo'),
-        ('orange', 'Laranja'), ('gray', 'Cinza'),
-    ]
-    SIZE_CHOICES = [
-        ('XS', 'Extra Pequeno'), ('S', 'Pequeno'), ('M', 'Médio'), ('L', 'Grande'),
-        ('XL', 'Extra Grande'), ('XXL', 'Extra Extra Grande'),
-        ('33', '33'), ('34', '34'), ('35', '35'), ('36', '36'), ('37', '37'), ('38', '38'),
-        ('39', '39'), ('40', '40'), ('41', '41'), ('42', '42'), ('43', '43'), ('44', '44'), ('45', '45'),
-    ]
+# --- NOVOS MODELS PARA VARIAÇÕES FLEXÍVEIS ---
 
+class Attribute(models.Model):
+    """
+    Define o "tipo" de variação.
+    Exemplos: 'Cor', 'Tamanho', 'Modelo', 'Marca', 'Voltagem'.
+    """
+    name = models.CharField(
+        max_length=100, unique=True, verbose_name="Nome do Atributo"
+    )
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Atributo"
+        verbose_name_plural = "Atributos"
+
+    def __str__(self):
+        return self.name
+
+class AttributeValue(models.Model):
+    """
+    Define o "valor" específico de um atributo.
+    Exemplos: 'Vermelho' (para Cor), 'M' (para Tamanho), 'Nike' (para Marca).
+    """
+    attribute = models.ForeignKey(
+        Attribute, on_delete=models.CASCADE, related_name='values', 
+        verbose_name="Atributo"
+    )
+    value = models.CharField(max_length=100, verbose_name="Valor")
+
+    class Meta:
+        ordering = ['attribute__name', 'value']
+        # Ex: Não pode ter dois "Vermelho" para "Cor"
+        unique_together = ['attribute', 'value'] 
+        verbose_name = "Valor de Atributo"
+        verbose_name_plural = "Valores de Atributos"
+
+    def __str__(self):
+        # Retorna "Cor: Vermelho" ou "Tamanho: M"
+        return f"{self.attribute.name}: {self.value}"
+
+
+# --- Model de Produto (Principal) ALTERADO ---
+class Product(models.Model):
+    # --- CHOICES REMOVIDOS DAQUI ---
+    # (Opcional: UNITE_CHOICES pode ficar se usado em outro lugar)
+    UNITE_CHOICES = [
+        ('pcs', 'Peças'), ('box', 'Caixa'), ('set', 'Conjunto'), ('pack', 'Pacote'),    
+    ]
+    
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', verbose_name="Loja")
     name = models.CharField(max_length=200, verbose_name="Nome do Produto")
     description = models.TextField(blank=True, verbose_name="Descrição")
@@ -72,6 +107,15 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
 
+    # --- CAMPO ADICIONADO (Opcional, mas recomendado) ---
+    variant_attributes = models.ManyToManyField(
+        Attribute,
+        related_name='products',
+        blank=True,
+        verbose_name="Atributos de VariaÇÃO",
+        help_text="Quais atributos este produto usa para variações (ex: Cor, Tamanho)."
+    )
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = "Produto"
@@ -80,18 +124,11 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
-    # Método auxiliar (opcional, mas conveniente)
-    def adicionar_variacao(self, cor, tamanho, quantidade, preco, modelo='', sku=None):
-        if not sku:
-            sku = f"{self.name[:3].upper()}-{str(cor)[:3].upper()}-{tamanho}-{uuid.uuid4().hex[:6]}"
-        
-        # Este método USA ProductVariant.objects.create internamente!
-        return ProductVariant.objects.create(
-            product=self, color=cor, size=tamanho, model=modelo,
-            stock=quantidade, price=preco, sku=sku
-        )
-
-    # ... (demais propriedades como total_stock, average_rating, review_count) ...
+    # --- Método 'adicionar_variacao' REMOVIDO ---
+    # A lógica de criação agora é mais complexa e depende
+    # da associação de AttributeValues
+    
+    # --- Propriedades mantidas (continuam funcionando) ---
     @property
     def total_stock(self):
         return sum(v.stock for v in self.variants.filter(is_active=True))
@@ -106,7 +143,7 @@ class Product(models.Model):
         return self.reviews.filter(is_approved=True).count()
 
 
-# --- Model de Variação (Cor, Tamanho, Estoque, Preço) ---
+# --- Model de Variação (Principal) ALTERADO ---
 class ProductVariant(models.Model):
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name='variants',
@@ -116,18 +153,19 @@ class ProductVariant(models.Model):
         max_length=100, unique=True, verbose_name="SKU",
         help_text="Identificador único para esta variação específica."
     )
-    color = models.CharField(
-        max_length=20, choices=Product.COLOR_CHOICES, verbose_name="Cor",
-        help_text="A cor desta variação."
+
+    # --- CAMPOS FIXOS REMOVIDOS ---
+    # color, size, model não existem mais aqui.
+
+    # --- CAMPO FLEXÍVEL ADICIONADO ---
+    values = models.ManyToManyField(
+        AttributeValue,
+        related_name='variants',
+        verbose_name="Valores dos Atributos",
+        help_text="A combinação de valores que define esta variação (ex: Vermelho + M + Nike)."
     )
-    size = models.CharField(
-        max_length=10, choices=Product.SIZE_CHOICES, verbose_name="Tamanho",
-        help_text="O tamanho desta variação."
-    )
-    model = models.CharField(
-        max_length=50, blank=True, default='', verbose_name="Modelo",
-        help_text="Ex: 'Manga Longa', 'Slim Fit' (opcional)."
-    )
+    
+    # --- Propriedades da Variação (Mantidas/Solicitadas) ---
     stock = models.IntegerField(
         default=0, validators=[MinValueValidator(0)], verbose_name="Estoque",
         help_text="Quantidade disponível desta variação específica."
@@ -136,6 +174,8 @@ class ProductVariant(models.Model):
         max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))],
         verbose_name="Preço", help_text="Preço desta variação específica."
     )
+    
+    # --- Campos restantes ---
     image = models.ImageField(
         upload_to='products/variants/', blank=True, null=True, verbose_name="Imagem da Variação",
         help_text="Imagem específica para esta variação (opcional, usará a do produto principal se vazia)."
@@ -145,14 +185,15 @@ class ProductVariant(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
 
     class Meta:
-        ordering = ['product__name', 'color', 'size'] # Melhor ordenação padrão
+        ordering = ['product__name', 'price'] # Ordenação padrão alterada
         verbose_name = "Variação de Produto"
         verbose_name_plural = "Variações de Produtos"
+        
+        # 'UniqueConstraint' anterior removido.
+        # Validar combinações únicas de 'values' M2M é complexo
+        # e geralmente tratado na lógica de forms/views.
+        
         constraints = [
-            models.UniqueConstraint(
-                fields=['product', 'color', 'size', 'model'],
-                name='uniq_product_color_size_model',
-            ),
             models.CheckConstraint(
                 check=models.Q(stock__gte=0),
                 name='check_stock_non_negative'
@@ -160,18 +201,27 @@ class ProductVariant(models.Model):
         ]
 
     def __str__(self):
-        modelo_str = f" | {self.model}" if self.model else ""
-        return f"{self.product.name} - {self.get_color_display()} | {self.size}{modelo_str} | R$ {self.price} (Est: {self.stock})"
+        # Cria uma string com os valores: "Vermelho / M / Nike"
+        values_str = " / ".join(
+            str(v.value) for v in self.values.all().order_by('attribute__name')
+        )
+        if not values_str:
+            values_str = "Padrão" # Caso seja um produto sem variação
+            
+        return f"{self.product.name} - ({values_str}) | R$ {self.price} (Est: {self.stock})"
+
+    @property
+    def option_description(self):
+        # Retorna uma descrição mais completa: "Cor: Vermelho / Tamanho: M"
+        return " / ".join(
+            str(v) for v in self.values.all().order_by('attribute__name')
+        )
 
     def __repr__(self):
-        attrs = [self.get_color_display(), self.get_size_display()]
-        if self.model: attrs.append(self.model)
-        attrs_str = ' / '.join(filter(None, attrs))
-        return f"<Variant: {self.product.name} - {attrs_str} ({self.sku})>"
+        return f"<Variant: {self.product.name} - {self.option_description} ({self.sku})>"
 
-# --- Models de Pedido, Review, Coupon, Wishlist (sem alterações necessárias para esta questão) ---
-# ... (seu código para Order, OrderItem, OrderStatusUpdate, Review, Coupon, Wishlist) ...
-# (Colei eles aqui para referência, mas não foram modificados)
+
+# --- Models de Pedido, Review, Coupon, Wishlist (sem alterações) ---
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -206,9 +256,9 @@ class Order(models.Model):
         total = sum(item.get_subtotal() for item in self.items.all())
         # Aplicar desconto do cupom se houver
         if self.coupon:
-             discount = self.coupon.calculate_discount(total)
-             self.discount_amount = discount
-             total -= discount
+            discount = self.coupon.calculate_discount(total)
+            self.discount_amount = discount
+            total -= discount
         else:
             self.discount_amount = 0
         self.total_amount = max(total, Decimal(0)) # Garante que não fique negativo
@@ -264,6 +314,8 @@ class OrderItem(models.Model):
         verbose_name_plural = "Itens dos Pedidos"
 
     def __str__(self):
+        # O __str__ de ProductVariant foi atualizado, então isso
+        # mostrará a descrição correta da variação.
         return f"{self.quantity}x {self.variant.product.name} ({self.variant.sku}) no Pedido #{self.order.id}"
 
     def get_subtotal(self):
