@@ -147,39 +147,34 @@ const CheckoutPage: React.FC = () => {
     setError(null);
     setLoading(true);
 
-    // CORREÇÃO: Payload dos itens - Apenas variantId e quantity
     const items = state.items.map((i) => ({
-      // product: i.productId, // Removido - Desnecessário para criar OrderItem
-      variant: i.variantId, // Envia o ID da variante (NÃO PODE SER NULL)
+      product: i.productId,
+      variant: i.variantId || null,
       quantity: i.quantity,
     }));
 
-    // Monta endereço completo (sem mudanças)
+    // Monta endereço completo
     const fullAddress = `${data.street}, ${data.number}${
       data.complement ? `, ${data.complement}` : ""
     }, ${data.neighborhood}, ${data.city}/${data.state}, CEP: ${data.cep}`;
 
-    // CORREÇÃO: Payload completo do pedido
     const payload = {
       customer_name: data.customer_name,
       customer_email: data.customer_email,
       customer_phone: data.customer_phone,
       shipping_address: fullAddress,
-      // status: 'pending', // Removido - Backend define o status inicial via set_status
-      payment_method: data.payment_method, // Adicionado
-      items, // Itens formatados corretamente
-      // TODO: Adicionar lógica de cupom aqui, se aplicável
-      // coupon: selectedCouponCode || null,
+      status: "pending",
+      items,
     };
 
     try {
-      const res = await orderService.createOrder(payload); // Assumindo que createOrder aceita este payload
+      const res = await orderService.createOrder(payload);
       dispatch({ type: "CLEAR_CART" });
       message.success(t("checkout.order_created", { id: res.id }));
-      setCurrentStep(1); // Avança para confirmação
-      setTimeout(() => navigate("/sales"), 3000); // Redireciona após 3s
+      setCurrentStep(1);
+      setTimeout(() => navigate("/sales"), 3000);
     } catch (err) {
-      setError(err); // Mostra erro no ApiErrorAlert
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -561,22 +556,32 @@ const CheckoutPage: React.FC = () => {
 
             <div className="space-y-3 mb-4">
               {state.items.map((item) => {
-                    const product = item.product;
-                    const variant = product?.variants?.find((v) => v.id === item.variantId) ?? null;
-                    // CORREÇÃO: Preço SÓ PODE VIR DA VARIANTE
-                    const unitPrice = variant ? Number(variant.price) : 0; // Se não achar, preço é 0 (indica erro no estado)
+                const product = item.product;
+                const variant =
+                  product?.variants?.find((v) => v.id === item.variantId) ??
+                  null;
+                const unitPrice = variant
+                  ? Number(variant.price)
+                  : product
+                  ? Number(product.price)
+                  : 0;
 
-                    return (
-                      <div key={`${item.productId}-${item.variantId}`} /* ... restante do JSX ... */ >
-                        {/* ... */}
-                        <div className="flex justify-between mt-1">
-                          <Text type="secondary" className="text-xs">Qtd: {item.quantity}</Text>
-                          <Text strong className="text-sm">R$ {(unitPrice * item.quantity).toFixed(2)}</Text> {/* Usa unitPrice corrigido */}
-                        </div>
-                      {/* ... */}
+                return (
+                  <div
+                    key={`${item.productId}-${item.variantId}`}
+                    className="flex gap-3 pb-3 border-b border-gray-100"
+                  >
+                    {product?.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-16 h-16 object-cover rounded"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-gray-100 rounded flex items-center justify-center text-2xl">
+                        📦
                       </div>
-                    );
-                  })}
+                    )}
                     <div className="flex-1">
                       <Text strong className="text-sm">
                         {product?.name}
