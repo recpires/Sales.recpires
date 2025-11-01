@@ -5,7 +5,7 @@ import { Product, ProductVariant } from "../types/product";
 // --- INTERFACE (sem mudanças) ---
 interface CartItem {
   productId: number;
-  variantId: number;
+  variantId: number | null;
   quantity: number;
   product: Product;
 }
@@ -20,7 +20,7 @@ type CartAction =
       type: "ADD_ITEM";
       payload: {
         productId: number;
-        variantId: number;
+        variantId: number | null;
         quantity: number;
         product: Product;
       };
@@ -28,7 +28,11 @@ type CartAction =
   | { type: "REMOVE_ITEM"; payload: { productId: number; variantId: number } }
   | {
       type: "UPDATE_QUANTITY";
-      payload: { productId: number; variantId: number; quantity: number };
+      payload: {
+        productId: number;
+        variantId: number | null;
+        quantity: number;
+      };
     }
   | { type: "CLEAR_CART" }
   | { type: "LOAD_CART"; payload: any[] }; // Tipado como any[] para limpeza no reducer
@@ -102,7 +106,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
       if (existingItemIndex > -1) {
         // Item existente
-        const currentItem = state.items[existingItemIndex]; // Garante que currentItem não é undefined
+        const currentItem = state.items[existingItemIndex]!; // Non-null assertion
         const currentQuantity = currentItem.quantity;
         const potentialNewQuantity = currentQuantity + quantity;
         const finalQuantity = Math.min(potentialNewQuantity, availableStock);
@@ -116,9 +120,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         if (finalQuantity === currentQuantity) return state; // Sem mudanças
 
         const newItems = [...state.items];
-        // CORREÇÃO: Cria um novo objeto completo para garantir a tipagem correta
+        // Cria um novo objeto completo para garantir a tipagem correta
         newItems[existingItemIndex] = {
-          ...currentItem, // Espalha o item existente (que é CartItem)
+          ...(currentItem as CartItem), // Espalha o item existente (que é CartItem)
           quantity: finalQuantity, // Sobrescreve apenas a quantidade
         };
         newState = { ...state, items: newItems };
@@ -174,7 +178,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       );
       if (itemIndex === -1) return state;
 
-      const currentItem = state.items[itemIndex]; // Garante que existe
+      const currentItem = state.items[itemIndex]!; // Non-null assertion
       // CORREÇÃO: Acessa product de currentItem que sabemos existir
       const product = currentItem.product;
 
@@ -216,9 +220,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         if (finalQuantity === currentItem.quantity) return state; // Sem mudanças
 
         const newItems = [...state.items];
-        // CORREÇÃO: Cria um novo objeto completo para garantir a tipagem correta
+        // Cria um novo objeto completo para garantir a tipagem correta
         newItems[itemIndex] = {
-          ...currentItem, // Espalha o item existente (que é CartItem)
+          ...(currentItem as CartItem), // Espalha o item existente (que é CartItem)
           quantity: finalQuantity, // Sobrescreve apenas a quantidade
         };
         newState = { ...state, items: newItems };
