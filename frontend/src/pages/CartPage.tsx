@@ -188,8 +188,8 @@ const CartPage: React.FC = () => {
                               {variant && (
                                 <div className="mb-2">
                                   <Text type="secondary" className="text-sm">
-                                    Variante: {variant.size || ""}{" "}
-                                    {variant.color ? `• ${variant.color}` : ""}
+                                    Variante: {variant?.size ?? ""}{" "}
+                                    {variant?.color ? `• ${variant.color}` : ""}
                                   </Text>
                                   <br />
                                   <Text type="secondary" className="text-xs">
@@ -223,7 +223,7 @@ const CartPage: React.FC = () => {
                                     value={item.quantity}
                                     onChange={(val: number | null) =>
                                       dispatch({
-                                        type: "SET_QUANTITY",
+                                        type: "UPDATE_QUANTITY",
                                         payload: {
                                           productId: item.productId,
                                           variantId: item.variantId,

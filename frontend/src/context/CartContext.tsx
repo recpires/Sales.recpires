@@ -25,7 +25,10 @@ type CartAction =
         product: Product;
       };
     }
-  | { type: "REMOVE_ITEM"; payload: { productId: number; variantId: number } }
+  | {
+      type: "REMOVE_ITEM";
+      payload: { productId: number; variantId: number | null };
+    }
   | {
       type: "UPDATE_QUANTITY";
       payload: {
