@@ -249,13 +249,14 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
           if (
             rest &&
             typeof rest.productId === "number" &&
-            typeof rest.variantId === "number" &&
+            (typeof rest.variantId === "number" || rest.variantId === null) &&
             typeof rest.quantity === "number" &&
             rest.product
           ) {
             // Remove campos extras ou inválidos se necessário
             const cleanItem: CartItem = {
               productId: rest.productId,
+              // variantId pode ser número ou null (manter o null se estiver salvo assim)
               variantId: rest.variantId,
               quantity: rest.quantity,
               product: rest.product, // Assume que 'product' está no formato correto
