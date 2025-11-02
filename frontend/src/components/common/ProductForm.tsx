@@ -1,18 +1,12 @@
+import React, { useState, useEffect } from "react";
 import type { FC } from "react";
-import { useState } from "react";
 import { Form, Input, InputNumber, Button, Upload, Switch } from "antd";
 import {
   UploadOutlined,
   PlusOutlined,
   MinusCircleOutlined,
 } from "@ant-design/icons";
-
-interface ProductFormProps {
-  onSubmit: (data: ProductFormData, image?: File) => Promise<void>;
-  initialData?: Partial<ProductFormData>;
-  submitText?: string;
-  loading?: boolean;
-}
+import type { UploadFile } from "antd/es/upload/interface"; // Import type for clarity
 
 interface ProductFormData {
   name: string;
@@ -30,6 +24,13 @@ interface ProductFormData {
   }>;
 }
 
+interface ProductFormProps {
+  onSubmit: (data: any, image?: File) => void;
+  loading: boolean;
+  submitText: string;
+  initialData?: ProductFormData; // <--- ADICIONADO
+}
+
 const ProductForm: FC<ProductFormProps> = ({
   onSubmit,
   initialData,
@@ -45,17 +46,31 @@ const ProductForm: FC<ProductFormProps> = ({
     Array.isArray(initialData?.variants) && initialData.variants.length > 0
   );
 
-  const handleImageChange = (info: any) => {
-    if (info.file.originFileObj) {
-      const file = info.file.originFileObj;
-      setImageFile(file);
+  // Efeito para limpar a URL de preview da memória
+  useEffect(() => {
+    // Esta função de limpeza é chamada quando o componente é desmontado
+    return () => {
+      // Se a imagePreview for uma URL 'blob:' (criada por createObjectURL),
+      // nós a revogamos para liberar memória.
+      if (imagePreview && imagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]); // Executa sempre que imagePreview mudar
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  // <--- FUNÇÃO CRIADA
+  /**
+   * Chamado ANTES do upload.
+   * Captura o arquivo, cria o preview e impede o upload automático.
+   */
+  const handleImageUpload = (file: File) => {
+    setImageFile(file); // Salva o ARQUIVO para o submit
+
+    // Cria e salva a URL de PREVIEW
+    const newPreviewUrl = URL.createObjectURL(file);
+    setImagePreview(newPreviewUrl);
+
+    return false; // Impede que o Ant Design faça o upload automaticamente
   };
 
   const handleSubmit = async (values: ProductFormData) => {
@@ -65,10 +80,13 @@ const ProductForm: FC<ProductFormProps> = ({
         ? { ...values, price: undefined, stock: undefined }
         : { ...values, variants: undefined };
 
+      // 'imageFile' agora está correto, vindo de 'handleImageUpload'
       await onSubmit(submitData, imageFile);
+
       form.resetFields();
       setImageFile(undefined);
-      setImagePreview(undefined);
+      // Reseta o preview para a imagem inicial (se houver) ou nada
+      setImagePreview(initialData?.image ?? undefined);
     } catch (error) {
       console.error("Error submitting form:", error);
     }
@@ -84,6 +102,7 @@ const ProductForm: FC<ProductFormProps> = ({
   };
 
   return (
+    // <--- FORMULÁRIO DE UPLOAD REMOVIDO DO TOPO
     <Form
       form={form}
       layout="vertical"
@@ -130,6 +149,30 @@ const ProductForm: FC<ProductFormProps> = ({
 
       <Form.Item label="Categoria" name="category">
         <Input placeholder="Ex: Roupas, Eletrônicos, etc." size="large" />
+      </Form.Item>
+
+      {/* Image Upload - MOVIMENTEI PARA CÁ */}
+      <Form.Item label="Imagem do Produto">
+        <Upload
+          beforeUpload={handleImageUpload} // <--- LÓGICA CORRIGIDA
+          maxCount={1}
+          listType="picture-card"
+          showUploadList={false} // Não mostra a lista de arquivos, só o preview
+          accept="image/png, image/jpeg, image/webp"
+        >
+          {imagePreview ? ( // <--- USA O 'imagePreview'
+            <img
+              src={imagePreview}
+              alt="Preview"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center">
+              <UploadOutlined className="text-3xl text-gray-400" />
+              <div className="mt-2 text-gray-600">Enviar Imagem</div>
+            </div>
+          )}
+        </Upload>
       </Form.Item>
 
       {/* Toggle Variants */}
@@ -286,29 +329,7 @@ const ProductForm: FC<ProductFormProps> = ({
         </Form.List>
       )}
 
-      {/* Image Upload */}
-      <Form.Item label="Imagem do Produto">
-        <Upload
-          beforeUpload={() => false}
-          onChange={handleImageChange}
-          maxCount={1}
-          listType="picture-card"
-          showUploadList={false}
-        >
-          {imagePreview ? (
-            <img
-              src={imagePreview}
-              alt="Preview"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center">
-              <UploadOutlined className="text-3xl text-gray-400" />
-              <div className="mt-2 text-gray-600">Enviar Imagem</div>
-            </div>
-          )}
-        </Upload>
-      </Form.Item>
+      {/* <--- CAMPO DE UPLOAD DUPLICADO REMOVIDO DAQUI */}
 
       <Form.Item>
         <Button
