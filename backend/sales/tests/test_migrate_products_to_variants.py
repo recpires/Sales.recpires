@@ -11,57 +11,157 @@ class MigrateProductsToVariantsTest(TestCase):
         self.store = Store.objects.create(owner=self.user, name='Loja')
 
     def test_dry_run_does_not_create_variants(self):
-        p = Product.objects.create(store=self.store, name='P1', price=10.0, stock=5, sku='SKU1')
+        # Insert a legacy product row (DB columns price/stock/sku exist in migrations)
+        from django.db import connection
+        now = None
+        with connection.cursor() as cursor:
+            from django.utils import timezone
+            now = timezone.now()
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P1', '', '10.00', 5, 'SKU1', 1, now, now, self.store.pk, 'black', 'M']
+            )
+            product_id = cursor.lastrowid
         out = StringIO()
         call_command('migrate_products_to_variants', '--dry-run', stdout=out)
         self.assertIn('DRY RUN', out.getvalue())
+        # no variants should have been created in dry-run
         self.assertEqual(ProductVariant.objects.count(), 0)
 
     def test_creates_variant_for_product_without_variants(self):
-        p = Product.objects.create(store=self.store, name='P2', price=15.0, stock=3, sku='SKU2')
+        # legacy product row
+        from django.db import connection
+        from django.utils import timezone
+        now = timezone.now()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P2', '', '15.00', 3, 'SKU2', 1, now, now, self.store.pk, 'black', 'M']
+            )
+            product_id = cursor.lastrowid
         out = StringIO()
         call_command('migrate_products_to_variants', stdout=out)
+        # a single variant should be created for the legacy product
         self.assertEqual(ProductVariant.objects.count(), 1)
         v = ProductVariant.objects.first()
-        self.assertEqual(v.price, p.price)
-        self.assertEqual(v.stock, p.stock)
+        self.assertEqual(v.price, 15.00)
+        self.assertEqual(v.stock, 3)
 
     def test_resolve_sku_append_id(self):
         # create existing variant SKU conflict
-        p1 = Product.objects.create(store=self.store, name='P3', price=20.0, stock=2, sku='X')
-        ProductVariant.objects.create(product=p1, sku='X', price=20.0, stock=2)
+        from django.db import connection
+        from django.utils import timezone
+        now = timezone.now()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P3', '', '20.00', 2, None, 1, now, now, self.store.pk, 'black', 'M']
+            )
+            p1_id = cursor.lastrowid
+        # create existing variant SKU conflict
+        ProductVariant.objects.create(product_id=p1_id, sku='X', price=20.0, stock=2)
 
         # another product with same sku
-        p2 = Product.objects.create(store=self.store, name='P4', price=25.0, stock=4, sku='X')
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P4', '', '25.00', 4, 'X', 1, now, now, self.store.pk, 'black', 'M']
+            )
+            p2_id = cursor.lastrowid
         out = StringIO()
         call_command('migrate_products_to_variants', '--resolve-skus=append-id', stdout=out)
         # ensure a new variant was created with appended id
         self.assertTrue(ProductVariant.objects.filter(sku__contains='X-').exists())
 
     def test_resolve_sku_skip(self):
-        p1 = Product.objects.create(store=self.store, name='P5', price=30.0, stock=1, sku='Y')
-        ProductVariant.objects.create(product=p1, sku='Y', price=30.0, stock=1)
+        from django.db import connection
+        from django.utils import timezone
+        now = timezone.now()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P5', '', '30.00', 1, None, 1, now, now, self.store.pk, 'black', 'M']
+            )
+            p1_id = cursor.lastrowid
+        ProductVariant.objects.create(product_id=p1_id, sku='Y', price=30.0, stock=1)
 
-        p2 = Product.objects.create(store=self.store, name='P6', price=35.0, stock=2, sku='Y')
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P6', '', '35.00', 2, 'Y', 1, now, now, self.store.pk, 'black', 'M']
+            )
+            p2_id = cursor.lastrowid
         out = StringIO()
         call_command('migrate_products_to_variants', '--resolve-skus=skip', stdout=out)
         # no new variant for p2
-        self.assertEqual(ProductVariant.objects.filter(product=p2).count(), 0)
+        self.assertEqual(ProductVariant.objects.filter(product_id=p2_id).count(), 0)
 
     def test_resolve_sku_fail_raises(self):
-        p1 = Product.objects.create(store=self.store, name='P7', price=40.0, stock=1, sku='Z')
-        ProductVariant.objects.create(product=p1, sku='Z', price=40.0, stock=1)
+        from django.db import connection
+        from django.utils import timezone
+        now = timezone.now()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P7', '', '40.00', 1, None, 1, now, now, self.store.pk, 'black', 'M']
+            )
+            p1_id = cursor.lastrowid
+        ProductVariant.objects.create(product_id=p1_id, sku='Z', price=40.0, stock=1)
 
-        p2 = Product.objects.create(store=self.store, name='P8', price=45.0, stock=2, sku='Z')
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P8', '', '45.00', 2, 'Z', 1, now, now, self.store.pk, 'black', 'M']
+            )
+            p2_id = cursor.lastrowid
         with self.assertRaises(Exception):
             call_command('migrate_products_to_variants', '--resolve-skus=fail')
 
     def test_clear_product_fields(self):
-        p = Product.objects.create(store=self.store, name='P9', price=50.0, stock=6, sku='CLEAN')
+        from django.db import connection
+        from django.utils import timezone
+        now = timezone.now()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO sales_product (name, description, price, stock, sku, is_active, created_at, updated_at, store_id, color, size)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                ['P9', '', '50.00', 6, 'CLEAN', 1, now, now, self.store.pk, 'black', 'M']
+            )
+            p_id = cursor.lastrowid
         out = StringIO()
         call_command('migrate_products_to_variants', '--clear-product-fields', stdout=out)
-        v = ProductVariant.objects.filter(product=p).first()
+        v = ProductVariant.objects.filter(product_id=p_id).first()
         self.assertIsNotNone(v)
-        p.refresh_from_db()
-        self.assertIsNone(p.sku)
-        self.assertEqual(p.stock, 0)
+        # After clearing product fields the DB product row should have sku NULL and stock 0
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT sku, stock FROM sales_product WHERE id=%s", [p_id])
+            row = cursor.fetchone()
+        self.assertIsNone(row[0])
+        self.assertEqual(row[1], 0)
