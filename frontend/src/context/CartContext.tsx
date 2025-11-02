@@ -100,8 +100,8 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         );
         return state;
       }
-      // Agora TS sabe que 'variant' existe e tem 'stock', 'sku', etc.
-      const availableStock = variant.stock;
+      // Agora TS sabe que 'variant' existe; normalize stock para número (0 quando ausente)
+      const availableStock = Number(variant.stock ?? 0);
 
       const existingItemIndex = state.items.findIndex(
         (item) => item.productId === productId && item.variantId === variantId
@@ -204,7 +204,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         );
         return state; // Ou remove o item?
       }
-      const availableStock = variant.stock;
+      const availableStock = Number(variant.stock ?? 0);
 
       if (quantity <= 0) {
         newState = {
@@ -271,9 +271,10 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return { ...state, items: loadedItems };
 
     default:
-      // Ignora o aviso de variável não utilizada (para exhaustiveness check)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _: never = action;
+      // Exhaustiveness check: garante que todas as ações foram tratadas.
+      // A variável é referenciada com `void` para evitar warning de variável não utilizada.
+      const _exhaustiveCheck: never = action;
+      void _exhaustiveCheck;
       return state;
   }
 };

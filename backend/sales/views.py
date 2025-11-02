@@ -80,13 +80,37 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def options(self, request, pk=None):
-        """Retorna opções de variação disponíveis (cores, tamanhos, modelos)."""
+        """Retorna opções de variação disponíveis baseado na M2M `values`.
+
+        Retorna um dicionário `attributes` mapeando o nome do atributo para os
+        valores disponíveis. Mantemos também chaves compatíveis `colors`,
+        `sizes` e `models` buscando por nomes comuns de atributo (ex: 'color',
+        'cor', 'size', 'tamanho', 'model', 'modelo').
+        """
         product = self.get_object()
-        qs = product.variants.filter(is_active=True, stock__gt=0)
+        qs = product.variants.filter(is_active=True, stock__gt=0).prefetch_related('values__attribute')
+
+        # Agrupa valores por nome de atributo (lowercase para consistência)
+        attr_map: dict[str, set] = {}
+        for variant in qs:
+            for val in variant.values.all():
+                name = (val.attribute.name or '').strip().lower()
+                if not name:
+                    continue
+                attr_map.setdefault(name, set()).add(val.value)
+
+        attributes = {k: sorted(list(v)) for k, v in attr_map.items()}
+
+        # Compatibilidade: tenta popular cores, tamanhos e modelos a partir dos nomes mais comuns
+        colors = attributes.get('color') or attributes.get('cor') or []
+        sizes = attributes.get('size') or attributes.get('tamanho') or []
+        models = attributes.get('model') or attributes.get('modelo') or []
+
         data = {
-            'colors': list(qs.values_list('color', flat=True).distinct()),
-            'sizes': list(qs.values_list('size', flat=True).distinct()),
-            'models': list(qs.exclude(model='').values_list('model', flat=True).distinct()),
+            'attributes': attributes,
+            'colors': colors,
+            'sizes': sizes,
+            'models': models,
         }
         return Response(data)
 
@@ -148,12 +172,30 @@ class ProductVariantViewSet(viewsets.ModelViewSet):
 
         # Filtros adicionais da query string (ex: ?color=blue&size=M)
         p = self.request.query_params
-        if p.get('color'):
-            qs = qs.filter(color=p.get('color'))
-        if p.get('size'):
-            qs = qs.filter(size=p.get('size'))
-        if p.get('model'):
-            qs = qs.filter(model__iexact=p.get('model'))
+
+        # Filtros por atributos que agora estão na M2M `values`.
+        # Buscamos por alguns nomes de atributo comuns para manter compatibilidade
+        # com front-ends que usem query params `color`, `size`, `model`.
+        color_val = p.get('color')
+        if color_val:
+            qs = qs.filter(
+                values__value__iexact=color_val,
+                values__attribute__name__in=['color', 'Color', 'cor', 'Cor']
+            )
+
+        size_val = p.get('size')
+        if size_val:
+            qs = qs.filter(
+                values__value__iexact=size_val,
+                values__attribute__name__in=['size', 'Size', 'tamanho', 'Tamanho']
+            )
+
+        model_val = p.get('model')
+        if model_val:
+            qs = qs.filter(
+                values__value__iexact=model_val,
+                values__attribute__name__in=['model', 'Model', 'modelo', 'Modelo']
+            )
         if p.get('in_stock'):
             qs = qs.filter(stock__gt=0)
             

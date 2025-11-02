@@ -1,14 +1,37 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Typography, Button, InputNumber, Tag, Rate, Divider, Row, Col, Tabs, Avatar, message, Spin, Alert, Badge } from 'antd';
-import { ShoppingCartOutlined, HeartOutlined, HeartFilled, StarFilled, ArrowLeftOutlined, ShopOutlined } from '@ant-design/icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import productService from '../services/productService';
-import reviewService from '../services/reviewService';
-import wishlistService from '../services/wishlistService';
-import { useCart } from '../context/CartContext';
-import { NavBar } from '../components/navbar';
-import { Review } from '../types/review';
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  Card,
+  Typography,
+  Button,
+  InputNumber,
+  Tag,
+  Rate,
+  Divider,
+  Row,
+  Col,
+  Tabs,
+  Avatar,
+  message,
+  Spin,
+  Alert,
+  Badge,
+} from "antd";
+import {
+  ShoppingCartOutlined,
+  HeartOutlined,
+  HeartFilled,
+  StarFilled,
+  ArrowLeftOutlined,
+  ShopOutlined,
+} from "@ant-design/icons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import productService from "../services/productService";
+import reviewService from "../services/reviewService";
+import wishlistService from "../services/wishlistService";
+import { useCart } from "../context/CartContext";
+import { NavBar } from "../components/navbar";
+import { Review } from "../types/review";
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -20,52 +43,54 @@ const ProductDetailPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
+    null
+  );
   const [isInWishlist, setIsInWishlist] = useState(false);
 
   // Fetch product details
-  const { data: product, isLoading, error } = useQuery({
-    queryKey: ['product', id],
+  const {
+    data: product,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["product", id],
     queryFn: () => productService.getProduct(Number(id)),
     enabled: !!id,
   });
 
   // Fetch reviews
   const { data: reviewsData } = useQuery({
-    queryKey: ['reviews', id],
+    queryKey: ["reviews", id],
     queryFn: () => reviewService.getReviews(Number(id)),
     enabled: !!id,
   });
 
   // Wishlist mutation
   const wishlistMutation = useMutation({
-    mutationFn: (productId: number) => wishlistService.toggleWishlist(productId),
+    mutationFn: (productId: number) =>
+      wishlistService.toggleWishlist(productId),
     onSuccess: (data) => {
-      setIsInWishlist(data.action === 'added');
+      setIsInWishlist(data.action === "added");
       message.success(data.message);
-      queryClient.invalidateQueries({ queryKey: ['wishlist'] });
+      queryClient.invalidateQueries({ queryKey: ["wishlist"] });
     },
   });
 
   const handleAddToCart = () => {
     if (!product) return;
 
-    const variant = selectedVariantId
-      ? product.variants?.find(v => v.id === selectedVariantId)
-      : null;
-
     dispatch({
-      type: 'ADD_ITEM',
+      type: "ADD_ITEM",
       payload: {
         productId: product.id,
         variantId: selectedVariantId,
         quantity,
         product,
-        variantSnapshot: variant,
       },
     });
 
-    message.success('Produto adicionado ao carrinho!');
+    message.success("Produto adicionado ao carrinho!");
   };
 
   const handleToggleWishlist = () => {
@@ -95,7 +120,7 @@ const ProductDetailPage: React.FC = () => {
             type="error"
             showIcon
           />
-          <Button onClick={() => navigate('/home')} className="mt-4">
+          <Button onClick={() => navigate("/home")} className="mt-4">
             Voltar para Home
           </Button>
         </div>
@@ -104,11 +129,15 @@ const ProductDetailPage: React.FC = () => {
   }
 
   const selectedVariant = selectedVariantId
-    ? product.variants?.find(v => v.id === selectedVariantId)
+    ? product.variants?.find((v) => v.id === selectedVariantId)
     : null;
 
-  const currentPrice = selectedVariant ? Number(selectedVariant.price) : Number(product.price);
-  const currentStock = selectedVariant ? selectedVariant.stock : product.stock;
+  const currentPrice = selectedVariant
+    ? Number(selectedVariant.price ?? product.price ?? 0)
+    : Number(product.price ?? 0);
+
+  // Ensure currentStock is always a number
+  const currentStock = Number(selectedVariant?.stock ?? product.stock ?? 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -120,7 +149,7 @@ const ProductDetailPage: React.FC = () => {
           <Button
             type="link"
             icon={<ArrowLeftOutlined />}
-            onClick={() => navigate('/home')}
+            onClick={() => navigate("/home")}
           >
             Voltar para produtos
           </Button>
@@ -145,17 +174,21 @@ const ProductDetailPage: React.FC = () => {
               {/* Thumbnail variants (if multiple images available) */}
               {product.variants && product.variants.length > 0 && (
                 <div className="flex gap-2 mt-4 overflow-x-auto">
-                  {product.variants.filter(v => v.image).map((variant) => (
-                    <img
-                      key={variant.id}
-                      src={variant.image || ''}
-                      alt={`${variant.color} ${variant.size}`}
-                      className={`w-16 h-16 object-cover rounded cursor-pointer border-2 ${
-                        selectedVariantId === variant.id ? 'border-blue-500' : 'border-gray-200'
-                      }`}
-                      onClick={() => setSelectedVariantId(variant.id)}
-                    />
-                  ))}
+                  {product.variants
+                    .filter((v) => v.image)
+                    .map((variant) => (
+                      <img
+                        key={variant.id}
+                        src={variant.image || ""}
+                        alt={`${variant?.color ?? ""} ${variant?.size ?? ""}`}
+                        className={`w-16 h-16 object-cover rounded cursor-pointer border-2 ${
+                          selectedVariantId === variant.id
+                            ? "border-blue-500"
+                            : "border-gray-200"
+                        }`}
+                        onClick={() => setSelectedVariantId(variant.id)}
+                      />
+                    ))}
                 </div>
               )}
             </Card>
@@ -173,14 +206,18 @@ const ProductDetailPage: React.FC = () => {
                 </div>
               )}
 
-              <Title level={2} className="mb-2">{product.name}</Title>
+              <Title level={2} className="mb-2">
+                {product.name}
+              </Title>
 
               {/* Rating */}
               {product.average_rating && product.average_rating > 0 && (
                 <div className="flex items-center gap-2 mb-4">
                   <Rate disabled value={product.average_rating} allowHalf />
                   <Text strong>{product.average_rating.toFixed(1)}</Text>
-                  <Text type="secondary">({product.review_count || 0} avaliações)</Text>
+                  <Text type="secondary">
+                    ({product.review_count || 0} avaliações)
+                  </Text>
                 </div>
               )}
 
@@ -193,23 +230,32 @@ const ProductDetailPage: React.FC = () => {
 
               {/* Description */}
               <Divider />
-              <Paragraph>{product.description || 'Sem descrição disponível.'}</Paragraph>
+              <Paragraph>
+                {product.description || "Sem descrição disponível."}
+              </Paragraph>
               <Divider />
 
               {/* Variants Selection */}
               {product.variants && product.variants.length > 0 && (
                 <div className="mb-6">
-                  <Text strong className="block mb-2">Selecione uma variação:</Text>
+                  <Text strong className="block mb-2">
+                    Selecione uma variação:
+                  </Text>
                   <div className="flex flex-wrap gap-2">
                     {product.variants.map((variant) => (
                       <Button
                         key={variant.id}
-                        type={selectedVariantId === variant.id ? 'primary' : 'default'}
+                        type={
+                          selectedVariantId === variant.id
+                            ? "primary"
+                            : "default"
+                        }
                         onClick={() => setSelectedVariantId(variant.id)}
                         disabled={!variant.is_active || variant.stock === 0}
                       >
-                        {variant.size} {variant.color && `• ${variant.color}`}
-                        {variant.stock === 0 && ' (Esgotado)'}
+                        {variant?.size ?? ""}{" "}
+                        {variant?.color ? `• ${variant.color}` : ""}
+                        {variant.stock === 0 && " (Esgotado)"}
                       </Button>
                     ))}
                   </div>
@@ -219,7 +265,10 @@ const ProductDetailPage: React.FC = () => {
               {/* Stock Info */}
               <div className="mb-4">
                 {currentStock > 0 ? (
-                  <Badge status="success" text={`${currentStock} unidades disponíveis`} />
+                  <Badge
+                    status="success"
+                    text={`${currentStock} unidades disponíveis`}
+                  />
                 ) : (
                   <Badge status="error" text="Produto esgotado" />
                 )}
@@ -228,7 +277,9 @@ const ProductDetailPage: React.FC = () => {
               {/* Quantity Selector */}
               {currentStock > 0 && (
                 <div className="mb-6">
-                  <Text strong className="block mb-2">Quantidade:</Text>
+                  <Text strong className="block mb-2">
+                    Quantidade:
+                  </Text>
                   <InputNumber
                     min={1}
                     max={currentStock}
@@ -249,7 +300,12 @@ const ProductDetailPage: React.FC = () => {
                     block
                     icon={<ShoppingCartOutlined />}
                     onClick={handleAddToCart}
-                    disabled={currentStock === 0 || (product.variants && product.variants.length > 0 && !selectedVariantId)}
+                    disabled={
+                      currentStock === 0 ||
+                      (product.variants &&
+                        product.variants.length > 0 &&
+                        !selectedVariantId)
+                    }
                   >
                     Adicionar ao Carrinho
                   </Button>
@@ -273,20 +329,32 @@ const ProductDetailPage: React.FC = () => {
               <Row gutter={16} className="text-center">
                 <Col span={8}>
                   <div className="p-4 bg-blue-50 rounded-lg">
-                    <Text strong className="block text-blue-600">🚚 Frete Grátis</Text>
-                    <Text type="secondary" className="text-xs">Para todo Brasil</Text>
+                    <Text strong className="block text-blue-600">
+                      🚚 Frete Grátis
+                    </Text>
+                    <Text type="secondary" className="text-xs">
+                      Para todo Brasil
+                    </Text>
                   </div>
                 </Col>
                 <Col span={8}>
                   <div className="p-4 bg-green-50 rounded-lg">
-                    <Text strong className="block text-green-600">🔒 Compra Segura</Text>
-                    <Text type="secondary" className="text-xs">Dados protegidos</Text>
+                    <Text strong className="block text-green-600">
+                      🔒 Compra Segura
+                    </Text>
+                    <Text type="secondary" className="text-xs">
+                      Dados protegidos
+                    </Text>
                   </div>
                 </Col>
                 <Col span={8}>
                   <div className="p-4 bg-orange-50 rounded-lg">
-                    <Text strong className="block text-orange-600">↩️ Devolução Fácil</Text>
-                    <Text type="secondary" className="text-xs">Até 30 dias</Text>
+                    <Text strong className="block text-orange-600">
+                      ↩️ Devolução Fácil
+                    </Text>
+                    <Text type="secondary" className="text-xs">
+                      Até 30 dias
+                    </Text>
                   </div>
                 </Col>
               </Row>
@@ -297,25 +365,47 @@ const ProductDetailPage: React.FC = () => {
         {/* Reviews Section */}
         <Card className="mt-8 shadow-lg">
           <Tabs defaultActiveKey="reviews">
-            <TabPane tab={`Avaliações (${reviewsData?.count || 0})`} key="reviews">
+            <TabPane
+              tab={`Avaliações (${reviewsData?.count || 0})`}
+              key="reviews"
+            >
               {reviewsData && reviewsData.results.length > 0 ? (
                 <div className="space-y-4">
                   {reviewsData.results.map((review: Review) => (
                     <Card key={review.id} className="bg-gray-50">
                       <div className="flex items-start gap-4">
-                        <Avatar size={48}>{review.user_first_name?.charAt(0) || review.user_name?.charAt(0)}</Avatar>
+                        <Avatar size={48}>
+                          {review.user_first_name?.charAt(0) ||
+                            review.user_name?.charAt(0)}
+                        </Avatar>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <Text strong>{review.user_first_name || review.user_name}</Text>
+                            <Text strong>
+                              {review.user_first_name || review.user_name}
+                            </Text>
                             {review.is_verified_purchase && (
-                              <Tag color="green" className="text-xs">Compra Verificada</Tag>
+                              <Tag color="green" className="text-xs">
+                                Compra Verificada
+                              </Tag>
                             )}
                           </div>
-                          <Rate disabled value={review.rating} className="text-sm" />
-                          {review.title && <Title level={5} className="mt-2">{review.title}</Title>}
-                          <Paragraph className="mt-2">{review.comment}</Paragraph>
+                          <Rate
+                            disabled
+                            value={review.rating}
+                            className="text-sm"
+                          />
+                          {review.title && (
+                            <Title level={5} className="mt-2">
+                              {review.title}
+                            </Title>
+                          )}
+                          <Paragraph className="mt-2">
+                            {review.comment}
+                          </Paragraph>
                           <Text type="secondary" className="text-xs">
-                            {new Date(review.created_at).toLocaleDateString('pt-BR')}
+                            {new Date(review.created_at).toLocaleDateString(
+                              "pt-BR"
+                            )}
                           </Text>
                         </div>
                       </div>
@@ -324,9 +414,13 @@ const ProductDetailPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <StarFilled style={{ fontSize: 64, color: '#d9d9d9' }} />
-                  <Title level={4} className="mt-4">Nenhuma avaliação ainda</Title>
-                  <Text type="secondary">Seja o primeiro a avaliar este produto!</Text>
+                  <StarFilled style={{ fontSize: 64, color: "#d9d9d9" }} />
+                  <Title level={4} className="mt-4">
+                    Nenhuma avaliação ainda
+                  </Title>
+                  <Text type="secondary">
+                    Seja o primeiro a avaliar este produto!
+                  </Text>
                 </div>
               )}
             </TabPane>
@@ -334,16 +428,21 @@ const ProductDetailPage: React.FC = () => {
             <TabPane tab="Especificações" key="specs">
               <Row gutter={[16, 16]}>
                 <Col span={12}>
-                  <Text strong>SKU:</Text> <Text>{product.sku || 'N/A'}</Text>
+                  <Text strong>SKU:</Text> <Text>{product.sku || "N/A"}</Text>
                 </Col>
                 <Col span={12}>
-                  <Text strong>Cor:</Text> <Text>{product.color || 'N/A'}</Text>
+                  <Text strong>Cor:</Text> <Text>{product.color || "N/A"}</Text>
                 </Col>
                 <Col span={12}>
-                  <Text strong>Tamanho:</Text> <Text>{product.size || 'N/A'}</Text>
+                  <Text strong>Tamanho:</Text>{" "}
+                  <Text>{product.size || "N/A"}</Text>
                 </Col>
                 <Col span={12}>
-                  <Text strong>Status:</Text> <Badge status={product.is_active ? 'success' : 'error'} text={product.is_active ? 'Ativo' : 'Inativo'} />
+                  <Text strong>Status:</Text>{" "}
+                  <Badge
+                    status={product.is_active ? "success" : "error"}
+                    text={product.is_active ? "Ativo" : "Inativo"}
+                  />
                 </Col>
               </Row>
             </TabPane>

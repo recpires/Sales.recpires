@@ -1,12 +1,15 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import storeService, { Store, StoreCreateData, StoreUpdateData } from '../services/storeService';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import storeService, {
+  StoreCreateData,
+  StoreUpdateData,
+} from "../services/storeService";
 
 /**
  * Hook to fetch current user's store
  */
 export const useMyStore = () => {
   return useQuery({
-    queryKey: ['myStore'],
+    queryKey: ["myStore"],
     queryFn: () => storeService.getMyStore(),
     retry: false, // Don't retry if user doesn't have a store (404)
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -22,8 +25,8 @@ export const useCreateStore = () => {
   return useMutation({
     mutationFn: (data: StoreCreateData) => storeService.createStore(data),
     onSuccess: (newStore) => {
-      queryClient.setQueryData(['myStore'], newStore);
-      queryClient.invalidateQueries({ queryKey: ['myStore'] });
+      queryClient.setQueryData(["myStore"], newStore);
+      queryClient.invalidateQueries({ queryKey: ["myStore"] });
     },
   });
 };
@@ -38,7 +41,7 @@ export const useUpdateStore = () => {
     mutationFn: ({ id, data }: { id: number; data: StoreUpdateData }) =>
       storeService.updateStore(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['myStore'] });
+      queryClient.invalidateQueries({ queryKey: ["myStore"] });
     },
   });
 };
@@ -52,8 +55,8 @@ export const useDeleteStore = () => {
   return useMutation({
     mutationFn: (id: number) => storeService.deleteStore(id),
     onSuccess: () => {
-      queryClient.setQueryData(['myStore'], null);
-      queryClient.invalidateQueries({ queryKey: ['myStore'] });
+      queryClient.setQueryData(["myStore"], null);
+      queryClient.invalidateQueries({ queryKey: ["myStore"] });
     },
   });
 };

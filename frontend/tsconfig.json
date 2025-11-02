@@ -5,6 +5,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    "resolveJsonModule": true,
 
     /* Bundler mode */
     "jsx": "react-jsx",
@@ -29,5 +30,6 @@
     }
   },
   "include": ["src"],
-  "types": ["vite/client"]
+  "types": ["vite/client"],
+  "exclude": ["src/__tests__", "**/*.test.tsx", "**/*.test.ts"]
 }

@@ -1,5 +1,5 @@
-import api from './api';
-import { Wishlist, WishlistToggleRequest, WishlistToggleResponse } from '../types/wishlist';
+import api from "./api";
+import { Wishlist, WishlistToggleResponse } from "../types/wishlist";
 
 export interface WishlistListResponse {
   count: number;
@@ -13,7 +13,7 @@ class WishlistService {
    * Get user's wishlist
    */
   async getWishlist(): Promise<WishlistListResponse> {
-    const response = await api.get<WishlistListResponse>('/wishlist/');
+    const response = await api.get<WishlistListResponse>("/wishlist/");
     return response.data;
   }
 
@@ -21,7 +21,9 @@ class WishlistService {
    * Add product to wishlist
    */
   async addToWishlist(productId: number): Promise<Wishlist> {
-    const response = await api.post<Wishlist>('/wishlist/', { product: productId });
+    const response = await api.post<Wishlist>("/wishlist/", {
+      product: productId,
+    });
     return response.data;
   }
 
@@ -36,7 +38,10 @@ class WishlistService {
    * Toggle product in wishlist (add if not exists, remove if exists)
    */
   async toggleWishlist(productId: number): Promise<WishlistToggleResponse> {
-    const response = await api.post<WishlistToggleResponse>('/wishlist/toggle/', { product_id: productId });
+    const response = await api.post<WishlistToggleResponse>(
+      "/wishlist/toggle/",
+      { product_id: productId }
+    );
     return response.data;
   }
 
@@ -46,7 +51,7 @@ class WishlistService {
   async isInWishlist(productId: number): Promise<boolean> {
     try {
       const wishlist = await this.getWishlist();
-      return wishlist.results.some(item => item.product === productId);
+      return wishlist.results.some((item) => item.product === productId);
     } catch (error) {
       return false;
     }

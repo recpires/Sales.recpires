@@ -5,6 +5,7 @@ from .models import (
     Category, Review, Coupon, Wishlist,
     Attribute, AttributeValue  # <--- ALTERADO: Importa os novos models
 )
+from django.db import transaction
 
 
 class StoreSerializer(serializers.ModelSerializer):
@@ -209,18 +210,21 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
-        order = Order.objects.create(**validated_data)
-        
-        for item_data in items_data:
-            try:
-                OrderItem.objects.create(order=order, **item_data)
-            except ValueError as e:
-                order.delete()
-                raise serializers.ValidationError(f"Erro ao adicionar item: {e}")
+        # Envolve a criação do pedido e dos itens em uma transação atômica
+        # para garantir consistência do estoque (select_for_update em OrderItem.save())
+        try:
+            with transaction.atomic():
+                order = Order.objects.create(**validated_data)
+                for item_data in items_data:
+                    # A criação de OrderItem fará checagens de estoque e atualizações
+                    OrderItem.objects.create(order=order, **item_data)
 
-        order.calculate_total() 
-        order.set_status('pending', note='Pedido criado com sucesso.')
-        return order
+                order.calculate_total()
+                order.set_status('pending', note='Pedido criado com sucesso.')
+                return order
+        except ValueError as e:
+            # transaction.atomic() assegura rollback; retornamos erro de validação
+            raise serializers.ValidationError(f"Erro ao adicionar item: {e}")
 
     def update(self, instance, validated_data):
         validated_data.pop('items', None)

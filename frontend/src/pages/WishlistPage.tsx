@@ -1,12 +1,27 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, Typography, Button, Empty, Row, Col, message, Spin, Alert } from 'antd';
-import { HeartOutlined, DeleteOutlined, ShoppingCartOutlined, EyeOutlined } from '@ant-design/icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import wishlistService from '../services/wishlistService';
-import { useCart } from '../context/CartContext';
-import { NavBar } from '../components/navbar';
-import { useSpring, animated } from 'react-spring';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  Typography,
+  Button,
+  Empty,
+  Row,
+  Col,
+  message,
+  Spin,
+  Alert,
+} from "antd";
+import {
+  HeartOutlined,
+  DeleteOutlined,
+  ShoppingCartOutlined,
+  EyeOutlined,
+} from "@ant-design/icons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import wishlistService from "../services/wishlistService";
+import { useCart } from "../context/CartContext";
+import { NavBar } from "../components/navbar";
+import { useSpring, animated } from "react-spring";
 
 const { Title, Text } = Typography;
 
@@ -16,14 +31,18 @@ const WishlistPage: React.FC = () => {
   const queryClient = useQueryClient();
 
   const fadeIn = useSpring({
-    from: { opacity: 0, transform: 'translateY(20px)' },
-    to: { opacity: 1, transform: 'translateY(0px)' },
+    from: { opacity: 0, transform: "translateY(20px)" },
+    to: { opacity: 1, transform: "translateY(0px)" },
     config: { tension: 280, friction: 60 },
   });
 
   // Fetch wishlist
-  const { data: wishlistData, isLoading, error } = useQuery({
-    queryKey: ['wishlist'],
+  const {
+    data: wishlistData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["wishlist"],
     queryFn: () => wishlistService.getWishlist(),
   });
 
@@ -31,11 +50,11 @@ const WishlistPage: React.FC = () => {
   const removeMutation = useMutation({
     mutationFn: (id: number) => wishlistService.removeFromWishlist(id),
     onSuccess: () => {
-      message.success('Produto removido dos favoritos');
-      queryClient.invalidateQueries({ queryKey: ['wishlist'] });
+      message.success("Produto removido dos favoritos");
+      queryClient.invalidateQueries({ queryKey: ["wishlist"] });
     },
     onError: () => {
-      message.error('Erro ao remover produto dos favoritos');
+      message.error("Erro ao remover produto dos favoritos");
     },
   });
 
@@ -44,17 +63,16 @@ const WishlistPage: React.FC = () => {
     if (!product) return;
 
     dispatch({
-      type: 'ADD_ITEM',
+      type: "ADD_ITEM",
       payload: {
         productId: product.id,
         variantId: null,
         quantity: 1,
         product,
-        variantSnapshot: null,
       },
     });
 
-    message.success('Produto adicionado ao carrinho!');
+    message.success("Produto adicionado ao carrinho!");
   };
 
   if (isLoading) {
@@ -94,7 +112,9 @@ const WishlistPage: React.FC = () => {
           <animated.div style={fadeIn}>
             <Card className="max-w-2xl mx-auto text-center py-12">
               <Empty
-                image={<HeartOutlined style={{ fontSize: 120, color: '#d9d9d9' }} />}
+                image={
+                  <HeartOutlined style={{ fontSize: 120, color: "#d9d9d9" }} />
+                }
                 description={
                   <div>
                     <Title level={3}>Sua lista de favoritos está vazia</Title>
@@ -108,7 +128,7 @@ const WishlistPage: React.FC = () => {
                   type="primary"
                   size="large"
                   icon={<ShoppingCartOutlined />}
-                  onClick={() => navigate('/home')}
+                  onClick={() => navigate("/home")}
                   className="mt-4"
                 >
                   Explorar Produtos
@@ -133,10 +153,12 @@ const WishlistPage: React.FC = () => {
                 ❤️ Meus Favoritos
               </Title>
               <Text type="secondary" style={{ fontSize: 16 }}>
-                {wishlistItems.length} {wishlistItems.length === 1 ? 'produto' : 'produtos'} na sua lista de favoritos
+                {wishlistItems.length}{" "}
+                {wishlistItems.length === 1 ? "produto" : "produtos"} na sua
+                lista de favoritos
               </Text>
             </div>
-            <Button onClick={() => navigate('/home')}>
+            <Button onClick={() => navigate("/home")}>
               Continuar Comprando
             </Button>
           </div>
@@ -202,11 +224,11 @@ const WishlistPage: React.FC = () => {
                       description={
                         <div className="space-y-2">
                           <Text strong className="text-green-600 text-xl block">
-                            R$ {Number(product.price).toFixed(2)}
+                            R$ {Number(product.price ?? 0).toFixed(2)}
                           </Text>
-                          {product.stock > 0 ? (
+                          {(product.stock ?? 0) > 0 ? (
                             <Text type="success" className="text-sm">
-                              ✅ {product.stock} em estoque
+                              ✅ {product.stock ?? 0} em estoque
                             </Text>
                           ) : (
                             <Text type="danger" className="text-sm">

@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
-import { Card, Typography, Table, Tag, Button, Empty, Spin, Space, Descriptions, Modal } from 'antd';
-import { EyeOutlined, ShoppingOutlined, ClockCircleOutlined } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
-import { useSpring, animated } from 'react-spring';
-import { NavBar } from '../components/navbar';
-import { Aside } from '../components/aside';
-import orderService from '../services/orderService';
-import authService from '../services/authService';
+import React, { useState } from "react";
+import {
+  Card,
+  Typography,
+  Table,
+  Tag,
+  Button,
+  Empty,
+  Spin,
+  Space,
+  Descriptions,
+  Modal,
+} from "antd";
+import { EyeOutlined, ShoppingOutlined } from "@ant-design/icons";
+import { useQuery } from "@tanstack/react-query";
+import { useSpring, animated } from "react-spring";
+import { NavBar } from "../components/navbar";
+import { Aside } from "../components/aside";
+import orderService from "../services/orderService";
+import authService from "../services/authService";
 
 const { Title, Text } = Typography;
 
@@ -42,14 +53,14 @@ const OrderHistoryPage: React.FC = () => {
 
   // Animação de fade-in
   const fadeIn = useSpring({
-    from: { opacity: 0, transform: 'translateY(20px)' },
-    to: { opacity: 1, transform: 'translateY(0px)' },
+    from: { opacity: 0, transform: "translateY(20px)" },
+    to: { opacity: 1, transform: "translateY(0px)" },
     config: { tension: 280, friction: 60 },
   });
 
   // Busca pedidos
   const { data, isLoading, error } = useQuery({
-    queryKey: ['orders', user?.email],
+    queryKey: ["orders", user?.email],
     queryFn: async () => {
       const response = await orderService.getOrders();
       return response;
@@ -61,7 +72,7 @@ const OrderHistoryPage: React.FC = () => {
   // Filtra pedidos do usuário (se não for admin)
   const userOrders = isAdmin
     ? orders
-    : orders.filter(order => order.customer_email === user?.email);
+    : orders.filter((order) => order.customer_email === user?.email);
 
   const toggleAside = () => {
     setIsAsideOpen(!isAsideOpen);
@@ -74,65 +85,65 @@ const OrderHistoryPage: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
-      pending: 'orange',
-      processing: 'blue',
-      shipped: 'cyan',
-      delivered: 'green',
-      cancelled: 'red',
+      pending: "orange",
+      processing: "blue",
+      shipped: "cyan",
+      delivered: "green",
+      cancelled: "red",
     };
-    return colors[status] || 'default';
+    return colors[status] || "default";
   };
 
   const getStatusText = (status: string) => {
     const texts: Record<string, string> = {
-      pending: 'Pendente',
-      processing: 'Processando',
-      shipped: 'Enviado',
-      delivered: 'Entregue',
-      cancelled: 'Cancelado',
+      pending: "Pendente",
+      processing: "Processando",
+      shipped: "Enviado",
+      delivered: "Entregue",
+      cancelled: "Cancelado",
     };
     return texts[status] || status;
   };
 
   const columns = [
     {
-      title: 'Pedido',
-      dataIndex: 'id',
-      key: 'id',
+      title: "Pedido",
+      dataIndex: "id",
+      key: "id",
       render: (id: number) => <Text strong>#{id}</Text>,
     },
     {
-      title: 'Data',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (date: string) => new Date(date).toLocaleDateString('pt-BR'),
+      title: "Data",
+      dataIndex: "created_at",
+      key: "created_at",
+      render: (date: string) => new Date(date).toLocaleDateString("pt-BR"),
     },
     {
-      title: 'Cliente',
-      dataIndex: 'customer_name',
-      key: 'customer_name',
+      title: "Cliente",
+      dataIndex: "customer_name",
+      key: "customer_name",
     },
     {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
       render: (status: string) => (
         <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>
       ),
     },
     {
-      title: 'Total',
-      dataIndex: 'total_amount',
-      key: 'total_amount',
+      title: "Total",
+      dataIndex: "total_amount",
+      key: "total_amount",
       render: (amount: string) => (
-        <Text strong style={{ fontSize: 16, color: '#52c41a' }}>
+        <Text strong style={{ fontSize: 16, color: "#52c41a" }}>
           R$ {parseFloat(amount).toFixed(2)}
         </Text>
       ),
     },
     {
-      title: 'Ações',
-      key: 'actions',
+      title: "Ações",
+      key: "actions",
       render: (_: any, record: Order) => (
         <Button
           type="link"
@@ -171,7 +182,11 @@ const OrderHistoryPage: React.FC = () => {
                 <Empty description="Erro ao carregar pedidos" />
               ) : userOrders.length === 0 ? (
                 <Empty
-                  image={<ShoppingOutlined style={{ fontSize: 80, color: '#d9d9d9' }} />}
+                  image={
+                    <ShoppingOutlined
+                      style={{ fontSize: 80, color: "#d9d9d9" }}
+                    />
+                  }
                   description={
                     <div>
                       <Title level={4}>Nenhum pedido encontrado</Title>
@@ -215,10 +230,10 @@ const OrderHistoryPage: React.FC = () => {
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Data do Pedido">
-                {new Date(selectedOrder.created_at).toLocaleString('pt-BR')}
+                {new Date(selectedOrder.created_at).toLocaleString("pt-BR")}
               </Descriptions.Item>
               <Descriptions.Item label="Última Atualização">
-                {new Date(selectedOrder.updated_at).toLocaleString('pt-BR')}
+                {new Date(selectedOrder.updated_at).toLocaleString("pt-BR")}
               </Descriptions.Item>
               <Descriptions.Item label="Cliente" span={2}>
                 {selectedOrder.customer_name}
@@ -245,26 +260,27 @@ const OrderHistoryPage: React.FC = () => {
               size="small"
               columns={[
                 {
-                  title: 'Produto',
-                  dataIndex: 'product_name',
-                  key: 'product_name',
+                  title: "Produto",
+                  dataIndex: "product_name",
+                  key: "product_name",
                 },
                 {
-                  title: 'Quantidade',
-                  dataIndex: 'quantity',
-                  key: 'quantity',
-                  align: 'center',
+                  title: "Quantidade",
+                  dataIndex: "quantity",
+                  key: "quantity",
+                  align: "center",
                 },
                 {
-                  title: 'Preço Unitário',
-                  dataIndex: 'unit_price',
-                  key: 'unit_price',
-                  render: (price: string) => `R$ ${parseFloat(price).toFixed(2)}`,
+                  title: "Preço Unitário",
+                  dataIndex: "unit_price",
+                  key: "unit_price",
+                  render: (price: string) =>
+                    `R$ ${parseFloat(price).toFixed(2)}`,
                 },
                 {
-                  title: 'Subtotal',
-                  dataIndex: 'subtotal',
-                  key: 'subtotal',
+                  title: "Subtotal",
+                  dataIndex: "subtotal",
+                  key: "subtotal",
                   render: (subtotal: string) => (
                     <Text strong>R$ {parseFloat(subtotal).toFixed(2)}</Text>
                   ),
@@ -275,8 +291,8 @@ const OrderHistoryPage: React.FC = () => {
             <div className="mt-6 text-right">
               <Space direction="vertical" align="end">
                 <Text style={{ fontSize: 18 }}>
-                  Total do Pedido:{' '}
-                  <Text strong style={{ fontSize: 24, color: '#52c41a' }}>
+                  Total do Pedido:{" "}
+                  <Text strong style={{ fontSize: 24, color: "#52c41a" }}>
                     R$ {parseFloat(selectedOrder.total_amount).toFixed(2)}
                   </Text>
                 </Text>

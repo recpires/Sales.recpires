@@ -41,10 +41,11 @@ orders_router.register('items', OrderItemViewSet, basename='order-items')
 
 urlpatterns = [
     # API routes
-    # MELHORIA: Prefixar a API com 'api/' é uma boa prática
-    path('api/', include(router.urls)),
-    path('api/', include(products_router.urls)),
-    path('api/', include(orders_router.urls)),
+    # Routers expostos no root deste include. O `core.urls` monta o pacote
+    # com o prefixo `/api/` — assim evitamos endpoints em `/api/api/...`.
+    path('', include(router.urls)),
+    path('', include(products_router.urls)),
+    path('', include(orders_router.urls)),
 
     # Authentication routes
     path('auth/register/', RegisterView.as_view(), name='register'),

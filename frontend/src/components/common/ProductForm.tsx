@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
-import { Form, Input, InputNumber, Button, Upload, Switch, message } from 'antd';
-import { UploadOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import type { FC } from "react";
+import { useState } from "react";
+import { Form, Input, InputNumber, Button, Upload, Switch } from "antd";
+import {
+  UploadOutlined,
+  PlusOutlined,
+  MinusCircleOutlined,
+} from "@ant-design/icons";
 
 interface ProductFormProps {
   onSubmit: (data: ProductFormData, image?: File) => Promise<void>;
@@ -16,6 +21,7 @@ interface ProductFormData {
   price?: number;
   stock?: number;
   category: string;
+  image?: string | null;
   variants?: Array<{
     name: string;
     sku: string;
@@ -24,15 +30,17 @@ interface ProductFormData {
   }>;
 }
 
-const ProductForm: React.FC<ProductFormProps> = ({
+const ProductForm: FC<ProductFormProps> = ({
   onSubmit,
   initialData,
-  submitText = 'Salvar',
+  submitText = "Salvar",
   loading = false,
 }) => {
   const [form] = Form.useForm();
   const [imageFile, setImageFile] = useState<File | undefined>(undefined);
-  const [imagePreview, setImagePreview] = useState<string | undefined>(initialData?.image);
+  const [imagePreview, setImagePreview] = useState<string | undefined>(
+    initialData?.image ?? undefined
+  );
   const [useVariants, setUseVariants] = useState(
     Array.isArray(initialData?.variants) && initialData.variants.length > 0
   );
@@ -62,7 +70,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       setImageFile(undefined);
       setImagePreview(undefined);
     } catch (error) {
-      console.error('Error submitting form:', error);
+      console.error("Error submitting form:", error);
     }
   };
 
@@ -86,7 +94,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
       <Form.Item
         label="Nome do Produto"
         name="name"
-        rules={[{ required: true, message: 'Por favor, insira o nome do produto' }]}
+        rules={[
+          { required: true, message: "Por favor, insira o nome do produto" },
+        ]}
       >
         <Input placeholder="Ex: Camiseta Básica" size="large" />
       </Form.Item>
@@ -94,7 +104,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       <Form.Item
         label="Descrição"
         name="description"
-        rules={[{ required: true, message: 'Por favor, insira a descrição' }]}
+        rules={[{ required: true, message: "Por favor, insira a descrição" }]}
       >
         <Input.TextArea
           placeholder="Descreva o produto..."
@@ -108,8 +118,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
         label="SKU (Código único)"
         name="sku"
         rules={[
-          { required: true, message: 'Por favor, insira o SKU' },
-          { pattern: /^[A-Za-z0-9-_]+$/, message: 'SKU deve conter apenas letras, números, - ou _' },
+          { required: true, message: "Por favor, insira o SKU" },
+          {
+            pattern: /^[A-Za-z0-9-_]+$/,
+            message: "SKU deve conter apenas letras, números, - ou _",
+          },
         ]}
       >
         <Input placeholder="Ex: CAM-BAS-001" size="large" />
@@ -126,7 +139,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
       >
         <Switch checked={useVariants} onChange={handleUseVariantsChange} />
         <span className="ml-2 text-gray-500">
-          {useVariants ? 'Produto com variantes' : 'Produto simples'}
+          {useVariants ? "Produto com variantes" : "Produto simples"}
         </span>
       </Form.Item>
 
@@ -135,11 +148,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
           <Form.Item
             label="Preço (R$)"
             name="price"
-            rules={[{ required: true, message: 'Por favor, insira o preço' }]}
+            rules={[{ required: true, message: "Por favor, insira o preço" }]}
           >
             <InputNumber
               prefix="R$"
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               min={0}
               precision={2}
               size="large"
@@ -150,10 +163,15 @@ const ProductForm: React.FC<ProductFormProps> = ({
           <Form.Item
             label="Estoque"
             name="stock"
-            rules={[{ required: true, message: 'Por favor, insira a quantidade em estoque' }]}
+            rules={[
+              {
+                required: true,
+                message: "Por favor, insira a quantidade em estoque",
+              },
+            ]}
           >
             <InputNumber
-              style={{ width: '100%' }}
+              style={{ width: "100%" }}
               min={0}
               size="large"
               placeholder="Quantidade disponível"
@@ -167,7 +185,9 @@ const ProductForm: React.FC<ProductFormProps> = ({
             {
               validator: async (_, variants) => {
                 if (!variants || variants.length < 1) {
-                  return Promise.reject(new Error('Adicione pelo menos uma variante'));
+                  return Promise.reject(
+                    new Error("Adicione pelo menos uma variante")
+                  );
                 }
               },
             },
@@ -176,9 +196,14 @@ const ProductForm: React.FC<ProductFormProps> = ({
           {(fields, { add, remove }, { errors }) => (
             <>
               {fields.map((field, index) => (
-                <div key={field.key} className="border border-gray-200 p-4 rounded-lg mb-4 bg-gray-50">
+                <div
+                  key={field.key}
+                  className="border border-gray-200 p-4 rounded-lg mb-4 bg-gray-50"
+                >
                   <div className="flex justify-between items-center mb-3">
-                    <h4 className="font-semibold text-gray-700">Variante {index + 1}</h4>
+                    <h4 className="font-semibold text-gray-700">
+                      Variante {index + 1}
+                    </h4>
                     <Button
                       type="text"
                       danger
@@ -192,8 +217,8 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   <Form.Item
                     {...field}
                     label="Nome da Variante"
-                    name={[field.name, 'name']}
-                    rules={[{ required: true, message: 'Nome obrigatório' }]}
+                    name={[field.name, "name"]}
+                    rules={[{ required: true, message: "Nome obrigatório" }]}
                   >
                     <Input placeholder="Ex: Tamanho M, Cor Azul" />
                   </Form.Item>
@@ -201,10 +226,10 @@ const ProductForm: React.FC<ProductFormProps> = ({
                   <Form.Item
                     {...field}
                     label="SKU da Variante"
-                    name={[field.name, 'sku']}
+                    name={[field.name, "sku"]}
                     rules={[
-                      { required: true, message: 'SKU obrigatório' },
-                      { pattern: /^[A-Za-z0-9-_]+$/, message: 'SKU inválido' },
+                      { required: true, message: "SKU obrigatório" },
+                      { pattern: /^[A-Za-z0-9-_]+$/, message: "SKU inválido" },
                     ]}
                   >
                     <Input placeholder="Ex: CAM-BAS-M-AZ" />
@@ -214,12 +239,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     <Form.Item
                       {...field}
                       label="Preço (R$)"
-                      name={[field.name, 'price']}
-                      rules={[{ required: true, message: 'Preço obrigatório' }]}
+                      name={[field.name, "price"]}
+                      rules={[{ required: true, message: "Preço obrigatório" }]}
                     >
                       <InputNumber
                         prefix="R$"
-                        style={{ width: '100%' }}
+                        style={{ width: "100%" }}
                         min={0}
                         precision={2}
                         placeholder="0,00"
@@ -229,10 +254,16 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     <Form.Item
                       {...field}
                       label="Estoque"
-                      name={[field.name, 'stock']}
-                      rules={[{ required: true, message: 'Estoque obrigatório' }]}
+                      name={[field.name, "stock"]}
+                      rules={[
+                        { required: true, message: "Estoque obrigatório" },
+                      ]}
                     >
-                      <InputNumber style={{ width: '100%' }} min={0} placeholder="Quantidade" />
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        placeholder="Quantidade"
+                      />
                     </Form.Item>
                   </div>
                 </div>
@@ -265,7 +296,11 @@ const ProductForm: React.FC<ProductFormProps> = ({
           showUploadList={false}
         >
           {imagePreview ? (
-            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+            <img
+              src={imagePreview}
+              alt="Preview"
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="flex flex-col items-center justify-center">
               <UploadOutlined className="text-3xl text-gray-400" />
@@ -276,7 +311,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
       </Form.Item>
 
       <Form.Item>
-        <Button type="primary" htmlType="submit" loading={loading} block size="large">
+        <Button
+          type="primary"
+          htmlType="submit"
+          loading={loading}
+          block
+          size="large"
+        >
           {submitText}
         </Button>
       </Form.Item>

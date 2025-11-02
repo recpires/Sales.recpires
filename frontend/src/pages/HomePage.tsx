@@ -50,7 +50,7 @@ const HomePage = () => {
   const filteredProducts = allProducts.filter((product) => {
     const q = searchTerm.toLowerCase();
     if (!q) return true;
-    const matchesName = product.name.toLowerCase().includes(q);
+    const matchesName = (product.name ?? "").toLowerCase().includes(q);
     const matchesDesc = product.description?.toLowerCase().includes(q);
     const matchesSku = (product.sku ?? "").toLowerCase().includes(q);
     const matchesVariantSku =
@@ -81,17 +81,14 @@ const HomePage = () => {
 
   const { dispatch } = useCart();
 
-  const handleAddToCart = (data: {
-    product: Product;
-    variantId?: number | null;
-    quantity?: number;
-    variantSnapshot?: any | null;
-  }) => {
+  const handleAddToCart = (data: any) => {
     try {
-      const product = data.product;
-      const variantId = data.variantId ?? null;
-      const quantity = data.quantity ?? 1;
-      const variantSnapshot = data.variantSnapshot ?? null;
+      // Accept either a Product object (from ProductCard) or an enriched object
+      const product: Product = data.product ?? data;
+      const variantId: number | null =
+        typeof data.variantId === "number" ? data.variantId : null;
+      const quantity: number =
+        typeof data.quantity === "number" ? data.quantity : 1;
 
       dispatch({
         type: "ADD_ITEM",
@@ -100,7 +97,6 @@ const HomePage = () => {
           variantId,
           quantity,
           product,
-          variantSnapshot,
         },
       });
       message.success("Produto adicionado ao carrinho");

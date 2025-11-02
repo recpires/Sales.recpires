@@ -10,7 +10,6 @@ import {
   Row,
   Col,
   Divider,
-  Select,
   Radio,
   Tag,
   Space,
@@ -587,8 +586,8 @@ const CheckoutPage: React.FC = () => {
                       {variant && (
                         <div>
                           <Text type="secondary" className="text-xs">
-                            {variant.size}{" "}
-                            {variant.color ? `• ${variant.color}` : ""}
+                            {variant?.size ?? ""}{" "}
+                            {variant?.color ? `• ${variant.color}` : ""}
                           </Text>
                         </div>
                       )}
