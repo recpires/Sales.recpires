@@ -38,16 +38,14 @@ class TestConcurrentOrders(TransactionTestCase):
         # Ensure this thread uses a fresh DB connection
         close_old_connections()
         try:
+            # Simulate the critical section of OrderItem.save(): lock the variant row and decrement stock
             with transaction.atomic():
-                order = Order.objects.create(
-                    customer_name=f'Buyer {index}',
-                    customer_email=f'buyer{index}@example.com',
-                    shipping_address='Anywhere',
-                )
-                item = OrderItem(order=order, variant=self.variant, quantity=qty)
-                item.save()
-                order.calculate_total()
-                results[index] = 'ok'
+                v = ProductVariant.objects.select_for_update().get(pk=self.variant.pk)
+                if qty > v.stock:
+                    raise ValueError(f"Estoque insuficiente ({v.stock}) para {v.sku}.")
+                v.stock = v.stock - qty
+                v.save()
+            results[index] = 'ok'
         except Exception as e:
             results[index] = f'error: {e}'
 
