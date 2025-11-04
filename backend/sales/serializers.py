@@ -1,307 +1,114 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
-from .models import (
-    Store, Product, ProductVariant, Order, OrderItem, OrderStatusUpdate,
-    Category, Review, Coupon, Wishlist,
-    Attribute, AttributeValue  # <--- ALTERADO: Importa os novos models
-)
+from .models import Store, Product, ProductVariant # <--- APENAS OS MODELS QUE PRECISAMOS
 from django.db import transaction
 
-
 class StoreSerializer(serializers.ModelSerializer):
+    """ Serializer para a Loja (Sem alterações) """
     class Meta:
         model = Store
-        fields = ['id', 'owner', 'name', 'description', 'phone', 'email', 'address', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
+        fields = ['id', 'owner', 'name', 'description', 'phone', 'email', 'address', 'is_active']
+        read_only_fields = ['id', 'owner']
 
-
-# --- NOVOS SERIALIZERS para Atributos ---
-
-class AttributeSerializer(serializers.ModelSerializer):
-    """ Serializer para Atributos (ex: Cor, Tamanho) """
-    class Meta:
-        model = Attribute
-        fields = ['id', 'name']
-
-
-class AttributeValueSerializer(serializers.ModelSerializer):
-    """ Serializer para Valores de Atributos (ex: Vermelho, M) """
-    # <--- ALTERADO: Exibe o nome do atributo (ex: "Cor") em vez do ID
-    attribute = serializers.StringRelatedField() 
-
-    class Meta:
-        model = AttributeValue
-        fields = ['id', 'attribute', 'value']
-
-
-# --- Serializers de Produto (ALTERADOS) ---
-
+# ---
+# NOVO SERIALIZER PARA CRIAR VARIANTES
+# ---
 class ProductVariantSerializer(serializers.ModelSerializer):
-    """ Serializer para Variações (Flexível) """
-    
-    # <--- REMOVIDO: 'color_display' e 'size_display' não existem mais
-    # color_display = ...
-    # size_display = ...
-    
-    # <--- ALTERADO: Adicionado 'values' aninhado
-    values = AttributeValueSerializer(many=True, read_only=True)
-    
-    image = serializers.SerializerMethodField() 
-
+    """
+    Serializer para as Variantes.
+    Usado para ler E escrever as variantes dentro do Produto.
+    """
     class Meta:
         model = ProductVariant
-        # <--- ALTERADO: Removidos 'color', 'color_display', 'size', 'size_display', 'model'
-        # Adicionado 'values'
         fields = [
-            'id', 'product', 'sku', 'values', 'stock', 'price', 'image', 'is_active'
+            'id', 
+            'name',  # <--- O campo "Nome da Variante" (ex: "Tamanho M")
+            'sku', 
+            'price', 
+            'stock'
         ]
         read_only_fields = ['id']
-        
-        extra_kwargs = {
-            'stock': {'validators': []}
-        }
-
-    def get_image(self, obj):
-        """ Retorna a URL absoluta da imagem da variante ou do produto principal """
-        request = self.context.get('request')
-        image_obj = obj.image or obj.product.image 
-        
-        if image_obj and request:
-            return request.build_absolute_uri(image_obj.url)
-        elif image_obj:
-            return image_obj.url
-        return None
-
-    def validate_stock(self, value):
-        if value < 0:
-            raise serializers.ValidationError("O estoque não pode ser negativo.")
-        return value
 
 
-class CategorySerializer(serializers.ModelSerializer):
-    """ Serializer para Categorias """
-    children = serializers.SerializerMethodField()
-    product_count = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Category
-        fields = ['id', 'name', 'slug', 'description', 'image', 'parent', 'is_active', 'children', 'product_count']
-        read_only_fields = ['id']
-
-    def get_children(self, obj):
-        if obj.children.exists():
-            return CategorySerializer(
-                obj.children.filter(is_active=True), 
-                many=True, 
-                context=self.context
-            ).data
-        return []
-
-    def get_product_count(self, obj):
-        return obj.products.filter(is_active=True).count()
-
-
+# ---
+# SERIALIZER DE PRODUTO PRINCIPAL (TOTALMENTE CORRIGIDO)
+# ---
 class ProductSerializer(serializers.ModelSerializer):
-    """ Serializer para o Produto "Pai" (detalhes completos) """
+    """
+    Serializer principal para CRIAR e LER produtos.
+    Ele agora aceita a criação de variantes aninhadas.
+    """
+    
+    # Define o serializer de variantes aninhadas.
+    # 'many=True' = é uma lista
+    # 'required=False' = não é obrigatório (para produtos simples)
+    variants = ProductVariantSerializer(many=True, required=False)
+    
+    # Campo de imagem para upload
+    # 'required=False' = a imagem é opcional
+    # 'write_only=True' = usado apenas para criar/atualizar, não mostra na leitura
+    image = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    
+    # Campo de imagem para LEITURA (mostra a URL completa)
+    image_url = serializers.SerializerMethodField(read_only=True)
+    
     store_name = serializers.CharField(source='store.name', read_only=True)
-    # <--- OK: 'variants' agora usa o ProductVariantSerializer atualizado
-    variants = ProductVariantSerializer(many=True, read_only=True) 
-    total_stock = serializers.IntegerField(read_only=True)
-    
-    average_rating = serializers.ReadOnlyField()
-    review_count = serializers.ReadOnlyField()
-    
-    categories = CategorySerializer(many=True, read_only=True) 
-    image = serializers.SerializerMethodField()
-    
-    # <--- ALTERADO: Adicionado 'variant_attributes'
-    variant_attributes = AttributeSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
-        # <--- ALTERADO: Adicionado 'variant_attributes'
+        # --- CAMPOS CORRIGIDOS ---
+        # Adicionamos 'sku', 'price', 'stock', 'category' (para produto simples)
+        # Adicionamos 'variants' (para produto com variantes)
+        # Adicionamos 'image' (para o upload) e 'image_url' (para leitura)
         fields = [
-            'id', 'store', 'store_name', 'name', 'description', 'is_active', 'image',
-            'categories', 'variant_attributes', 'variants', 'total_stock', 
-            'average_rating', 'review_count', 'created_at', 'updated_at'
+            'id', 'store', 'store_name', 'name', 'description', 'sku', 
+            'price', 'stock', 'category', 'is_active', 
+            'image', 'image_url', 'variants', 'created_at'
         ]
-        read_only_fields = ['id', 'store', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'store', 'store_name', 'created_at']
 
-    def get_image(self, obj):
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
-
-
-class ProductLiteSerializer(serializers.ModelSerializer):
-    """
-    Serializer "leve" para listas (Sem alterações necessárias)
-    """
-    image = serializers.SerializerMethodField()
-    price = serializers.SerializerMethodField()
-    # <--- ATENÇÃO: 'slug' não existe no seu model Product. 
-    # Mantenha ou remova conforme seu model.
-    class Meta:
-        model = Product 
-        fields = ['id', 'name', 'image', 'price'] 
-
-    def get_image(self, obj):
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
+    def get_image_url(self, obj):
+        """ Pega a URL da imagem principal do produto """
+        request = self.context.get('request')
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        elif obj.image:
             return obj.image.url
         return None
         
-    def get_price(self, obj):
-        """ Pega o preço da primeira variante (ou o menor preço) """
-        # <--- OK: Esta lógica ainda funciona
-        first_variant = obj.variants.filter(is_active=True).first()
-        if first_variant:
-            return first_variant.price
-        return None
-
-# --- Serializers de Pedido (Sem alterações necessárias) ---
-# A lógica de 'OrderItem' aponta para 'ProductVariant', 
-# então ela é independente das mudanças internas do ProductVariant.
-
-class OrderItemSerializer(serializers.ModelSerializer):
-    """ Serializer para os Itens *dentro* de um pedido """
-    
-    # <--- OK: 'variant_details' usará o ProductVariantSerializer atualizado
-    variant_details = ProductVariantSerializer(source='variant', read_only=True)
-    subtotal = serializers.DecimalField(source='get_subtotal', max_digits=10, decimal_places=2, read_only=True)
-    
-    class Meta:
-        model = OrderItem
-        fields = ['id', 'variant', 'variant_details', 'quantity', 'unit_price', 'subtotal']
-        read_only_fields = ['id', 'subtotal', 'unit_price'] 
-
-
-class OrderStatusUpdateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OrderStatusUpdate
-        fields = ['id', 'status', 'note', 'is_automatic', 'created_at']
-        read_only_fields = ['id', 'is_automatic', 'created_at']
-
-
-class OrderSerializer(serializers.ModelSerializer):
-    """ Serializer para o Pedido (completo) """
-    
-    items = OrderItemSerializer(many=True) 
-    status_updates = OrderStatusUpdateSerializer(many=True, read_only=True)
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    
-    class Meta:
-        model = Order
-        fields = [
-            'id', 'store', 'customer_name', 'customer_email', 'customer_phone',
-            'shipping_address', 'status', 'status_display', 'payment_method',
-            'payment_status', 'paid_at', 'total_amount', 'items', 'status_updates',
-            'coupon', 'discount_amount', 'created_at', 'updated_at'
-        ]
-        read_only_fields = [
-            'id', 'store', 'total_amount', 'paid_at', 
-            'created_at', 'updated_at', 'status_updates', 'discount_amount'
-        ]
-
-    def create(self, validated_data):
-        items_data = validated_data.pop('items', [])
-        # Envolve a criação do pedido e dos itens em uma transação atômica
-        # para garantir consistência do estoque (select_for_update em OrderItem.save())
-        try:
-            with transaction.atomic():
-                order = Order.objects.create(**validated_data)
-                for item_data in items_data:
-                    # A criação de OrderItem fará checagens de estoque e atualizações
-                    OrderItem.objects.create(order=order, **item_data)
-
-                order.calculate_total()
-                order.set_status('pending', note='Pedido criado com sucesso.')
-                return order
-        except ValueError as e:
-            # transaction.atomic() assegura rollback; retornamos erro de validação
-            raise serializers.ValidationError(f"Erro ao adicionar item: {e}")
-
-    def update(self, instance, validated_data):
-        validated_data.pop('items', None)
+    def validate(self, data):
+        """
+        Validação customizada:
+        - Se 'variants' existir, 'price' e 'stock' principais devem ser nulos.
+        - Se 'variants' não existir, 'price' e 'stock' principais são obrigatórios.
+        """
+        has_variants = 'variants' in data and data['variants']
         
-        new_status = validated_data.pop('status', None)
-        
-        instance = super().update(instance, validated_data)
-
-        if new_status and instance.status != new_status:
-             instance.set_status(new_status, note='Status atualizado via API', automatic=False)
-
-        return instance
-
-
-# --- Outros Serializers (Sem alterações necessárias) ---
-
-class ReviewSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source='user.username', read_only=True)
-    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
-
-    class Meta:
-        model = Review
-        fields = [
-            'id', 'product', 'user', 'user_name', 'user_first_name', 'rating', 
-            'title', 'comment', 'is_verified_purchase', 'is_approved', 'created_at'
-        ]
-        read_only_fields = [
-            'id', 'user', 'user_name', 'user_first_name', 
-            'is_verified_purchase', 'is_approved', 'created_at'
-        ]
-
-    def create(self, validated_data):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            validated_data['user'] = request.user
-        return super().create(validated_data)
-
-
-class CouponSerializer(serializers.ModelSerializer):
-    is_valid_now = serializers.SerializerMethodField()
-    valid_message = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Coupon
-        fields = [
-            'id', 'code', 'description', 'discount_type', 'discount_value',
-            'min_purchase_amount', 'max_discount_amount', 'usage_limit', 'usage_count',
-            'valid_from', 'valid_until', 'is_active', 'is_valid_now', 'valid_message'
-        ]
-        read_only_fields = ['id', 'usage_count']
-
-    def get_is_valid_now(self, obj):
-        is_valid, _ = obj.is_valid()
-        return is_valid
-
-    def get_valid_message(self, obj):
-        _, message = obj.is_valid()
-        return message
-
-
-class WishlistSerializer(serializers.ModelSerializer):
-    # <--- OK: 'product_details' usa o ProductLiteSerializer, que ainda é válido.
-    product_details = ProductLiteSerializer(source='product', read_only=True)
-
-    class Meta:
-        model = Wishlist
-        fields = ['id', 'user', 'product', 'product_details', 'created_at']
-        read_only_fields = ['id', 'user', 'created_at']
-
-    def create(self, validated_data):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user') and request.user.is_authenticated:
-            validated_data['user'] = request.user
+        if has_variants:
+            # Produto com variantes: limpa preço/estoque principal
+            data['price'] = None
+            data['stock'] = None
         else:
-            raise serializers.ValidationError("Usuário não autenticado.")
+            # Produto simples: valida preço/estoque principal
+            if 'price' not in data or data['price'] is None:
+                raise serializers.ValidationError({"price": "Preço é obrigatório para produtos simples."})
+            if 'stock' not in data or data['stock'] is None:
+                raise serializers.ValidationError({"stock": "Estoque é obrigatório para produtos simples."})
+                
+        return data
+
+    @transaction.atomic  # Garante que tudo seja salvo junto (ou nada)
+    def create(self, validated_data):
+        """
+        Sobrescreve o método 'create' para lidar com variantes.
+        """
+        # 1. Remove os dados das variantes (se existirem)
+        variants_data = validated_data.pop('variants', [])
         
-        try:
-            return super().create(validated_data)
-        except Exception: # IntegrityError (unique_together)
-             raise serializers.ValidationError("Este item já está na sua lista de desejos.")
+        # 2. Cria o objeto 'Product' principal
+        product = Product.objects.create(**validated_data)
+        
+        # 3. Se houver dados de variantes, cria cada uma
+        for variant_data in variants_data:
+            ProductVariant.objects.create(product=product, **variant_data)
+            
+        return product
