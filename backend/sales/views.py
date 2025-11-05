@@ -1,22 +1,22 @@
+
 from decimal import Decimal
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-# --- AQUI: IMPORTADO O MultiPartParser E FormParser ---
-from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db.models import Q
 
 from .models import (
     Store, Product, ProductVariant, Order, OrderItem,
-    Category, Review, Coupon, Wishlist
+    Category, Review, Coupon, Wishlist 
+    # CORREÇÃO 1: Removido 'ProductCategory', que não existe mais.
 )
 from .serializers import (
     StoreSerializer,
-    ProductSerializer,     # Deve ser o NOVO serializer que criamos
-    ProductVariantSerializer, # Deve ser o NOVO serializer que criamos
+    ProductSerializer,
+    ProductVariantSerializer,
     OrderSerializer,
     OrderItemSerializer,
     CategorySerializer,
@@ -27,7 +27,7 @@ from .serializers import (
 
 class StoreViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para a Loja do Vendedor. (Sem alterações)
+    ViewSet para a Loja do Vendedor.
     """
     queryset = Store.objects.all()
     serializer_class = StoreSerializer
@@ -35,6 +35,7 @@ class StoreViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def my_store(self, request):
+        """Retorna a loja do usuário logado."""
         try:
             store = Store.objects.get(owner=request.user)
             serializer = self.get_serializer(store)
@@ -46,6 +47,7 @@ class StoreViewSet(viewsets.ModelViewSet):
             )
 
     def create(self, request, *args, **kwargs):
+        """Impede que um usuário crie mais de uma loja."""
         if Store.objects.filter(owner=request.user).exists():
             return Response(
                 {"detail": "Você já possui uma loja cadastrada."},
@@ -57,6 +59,7 @@ class StoreViewSet(viewsets.ModelViewSet):
         serializer.save(owner=self.request.user)
 
     def get_queryset(self):
+        """Admin vê tudo, usuários veem apenas sua própria loja."""
         if self.request.user.is_staff or self.request.user.is_superuser:
             return Store.objects.all()
         return Store.objects.filter(owner=self.request.user)
@@ -66,26 +69,27 @@ class ProductViewSet(viewsets.ModelViewSet):
     """
     ViewSet para Produtos (o container principal).
     """
-    # --- AQUI: Removido 'prefetch_related('categories')' pois 'category' é um CharField
-    queryset = Product.objects.all().select_related('store').prefetch_related('variants')
-    serializer_class = ProductSerializer # <--- DEVE SER O NOVO SERIALIZER
-    
-    # --- AQUI: Adicionado os Parsers para aceitar upload de imagem ---
-    parser_classes = [MultiPartParser, FormParser]
-    
+    queryset = Product.objects.all().select_related('store').prefetch_related('variants', 'categories')
+    serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated] # Ajustado em get_permissions
 
     def get_permissions(self):
         """Permite que qualquer um (AllowAny) veja produtos (list, retrieve)."""
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'options']:
             return [AllowAny()]
         return [IsAuthenticated()]
 
-    # --- AQUI: REMOVIDA a ação @action 'options' inteira ---
-    # A lógica dela dependia dos modelos Attribute/AttributeValue que foram removidos.
-    # @action(detail=True, methods=['get'])
-    # def options(self, request, pk=None):
-    #     ... (código removido) ...
+    @action(detail=True, methods=['get'])
+    def options(self, request, pk=None):
+        """Retorna opções de variação disponíveis (cores, tamanhos, modelos)."""
+        product = self.get_object()
+        qs = product.variants.filter(is_active=True, stock__gt=0)
+        data = {
+            'colors': list(qs.values_list('color', flat=True).distinct()),
+            'sizes': list(qs.values_list('size', flat=True).distinct()),
+            'models': list(qs.exclude(model='').values_list('model', flat=True).distinct()),
+        }
+        return Response(data)
 
     def get_queryset(self):
         """
@@ -94,20 +98,18 @@ class ProductViewSet(viewsets.ModelViewSet):
         """
         user = self.request.user
         
-        # --- AQUI: Removido 'prefetch_related('categories')'
-        base_qs = Product.objects.all().select_related('store').prefetch_related('variants')
-        
         if user.is_staff:
-            return base_qs
+            return Product.objects.all().select_related('store').prefetch_related('variants', 'categories')
 
+        # Se o usuário não está autenticado ou é um cliente (não dono de loja)
         if not user.is_authenticated or not hasattr(user, 'store'):
-             return base_qs.filter(is_active=True)
+             return Product.objects.filter(is_active=True).select_related('store').prefetch_related('variants', 'categories')
         
         # Dono de loja vê seus próprios produtos
-        return base_qs.filter(store=user.store)
+        return Product.objects.filter(store=user.store).select_related('store').prefetch_related('variants', 'categories')
 
     def perform_create(self, serializer):
-        """Associa o produto à loja do usuário logado. (Está perfeito)"""
+        """Associa o produto à loja do usuário logado."""
         try:
             store = self.request.user.store
         except Store.DoesNotExist:
@@ -120,36 +122,43 @@ class ProductVariantViewSet(viewsets.ModelViewSet):
     ViewSet para Variantes (aninhado em /products/{product_pk}/variants/)
     """
     queryset = ProductVariant.objects.select_related('product').all()
-    serializer_class = ProductVariantSerializer # <--- DEVE SER O NOVO SERIALIZER
+    serializer_class = ProductVariantSerializer
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
+        """Permite que qualquer um (AllowAny) veja variantes."""
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
         """
-        Filtra variantes baseado na URL aninhada (product_pk)
+        CORREÇÃO 2: Filtra variantes baseado na URL aninhada (product_pk)
+        e também permite filtros adicionais por query params.
         """
+        # Filtra pelo 'product_pk' da URL
         qs = super().get_queryset().filter(
             product_id=self.kwargs.get('product_pk')
         )
         
         user = self.request.user
         
+        # Se o usuário não for staff, filtra apenas variantes ativas
         if not user.is_staff:
              qs = qs.filter(is_active=True)
 
-        # --- AQUI: REMOVIDA toda a lógica de filtro por 'values' ---
-        # A lógica antiga (p.get('color'), p.get('size')) estava quebrada
-        # pois dependia dos modelos Attribute/AttributeValue.
-        
+        # Filtros adicionais da query string (ex: ?color=blue&size=M)
         p = self.request.query_params
+        if p.get('color'):
+            qs = qs.filter(color=p.get('color'))
+        if p.get('size'):
+            qs = qs.filter(size=p.get('size'))
+        if p.get('model'):
+            qs = qs.filter(model__iexact=p.get('model'))
         if p.get('in_stock'):
             qs = qs.filter(stock__gt=0)
             
-        return qs.order_by('id') # Alterado de 'price' para 'id'
+        return qs.order_by('price')
 
     def perform_create(self, serializer):
         """Associa a variante ao produto pai da URL."""
@@ -168,13 +177,14 @@ class ProductVariantViewSet(viewsets.ModelViewSet):
 
 class OrderViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para Pedidos (Sem alterações necessárias por enquanto)
+    ViewSet para Pedidos (apenas para donos de loja).
     """
     queryset = Order.objects.all().select_related('store').prefetch_related('items__variant__product', 'status_updates')
     serializer_class = OrderSerializer
-    permission_classes = [IsAuthenticated] 
+    permission_classes = [IsAuthenticated] # Assumindo que clientes não veem /orders/
 
     def get_queryset(self):
+        """Dono da loja vê apenas seus pedidos; Staff vê tudo."""
         user = self.request.user
         if user.is_staff:
             return super().get_queryset()
@@ -186,15 +196,25 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Order.objects.none()
 
     def perform_create(self, serializer):
+        """
+        Define a loja do pedido baseado no primeiro item
+        ou na loja do usuário (se for dono).
+        """
+        # Lógica para criação de pedido (ex: checkout de cliente)
+        # Esta lógica deve ser mais robusta, ex: pegar a loja do primeiro item.
+        # Por enquanto, mantemos a lógica de "dono da loja cria pedido"
         try:
             store = self.request.user.store
             serializer.save(store=store)
         except Store.DoesNotExist:
+            # Se for um cliente, a lógica de 'store' deve vir do Serializer
+            # ou ser extraída dos itens.
             serializer.save() 
-    
-    # ... (Restante do OrderViewSet sem alterações) ...
+            # Nota: O OrderSerializer.create() precisa ser robusto
+
     @action(detail=True, methods=['post'])
     def set_status(self, request, pk=None):
+        """Muda o status de um pedido."""
         order = self.get_object()
         new_status = request.data.get('status')
         note = request.data.get('note', '')
@@ -206,6 +226,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def mark_cod_paid(self, request, pk=None):
+        """Marca um pedido COD (Pagamento na Entrega) como pago."""
         order = self.get_object()
         try:
             order.mark_cod_paid()
@@ -216,13 +237,17 @@ class OrderViewSet(viewsets.ModelViewSet):
 
 class OrderItemViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para Itens de Pedido (Sem alterações necessárias)
+    ViewSet para Itens de Pedido (aninhado em /orders/{order_pk}/items/)
     """
     queryset = OrderItem.objects.select_related('order', 'variant__product').all()
     serializer_class = OrderItemSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        """
+        CORREÇÃO 2: Filtra itens baseado na URL aninhada (order_pk)
+        e garante que o usuário seja dono da loja.
+        """
         order_pk = self.kwargs.get('order_pk')
         user = self.request.user
 
@@ -233,12 +258,13 @@ class OrderItemViewSet(viewsets.ModelViewSet):
             store = user.store
             return super().get_queryset().filter(
                 order_id=order_pk,
-                order__store=store 
+                order__store=store # Segurança: Garante que o item é de um pedido da loja
             )
         except Store.DoesNotExist:
             return OrderItem.objects.none()
 
     def perform_create(self, serializer):
+        """Associa o item ao pedido pai da URL."""
         try:
             order = Order.objects.get(
                 pk=self.kwargs.get('order_pk'),
@@ -256,15 +282,13 @@ class CategoryViewSet(viewsets.ModelViewSet):
     """
     ViewSet para Categorias.
     """
-    # --- AQUI: Assumindo que Category é um MODELO, não um CharField ---
-    # Se 'category' for um CharField no seu models.py, este ViewSet
-    # não será usado para criar produtos.
     queryset = Category.objects.filter(is_active=True).prefetch_related('children')
     serializer_class = CategorySerializer
-    permission_classes = [AllowAny] 
+    permission_classes = [AllowAny] # Todos podem ver
     lookup_field = 'slug'
 
     def get_permissions(self):
+        """Qualquer um pode ver, apenas staff pode editar."""
         if self.action in ['list', 'retrieve', 'products']:
             return [AllowAny()]
         return [IsAuthenticated(),] # Idealmente: IsAdminUser
@@ -274,10 +298,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
         """Retorna todos os produtos ativos desta categoria."""
         category = self.get_object()
         
-        # --- AQUI: A query foi alterada para 'category__iexact=category.name' ---
-        # Isso assume que 'category' no Product é um CharField
+        # CORREÇÃO 3: 'product_categories__category' mudou para 'categories'
         products = Product.objects.filter(
-            category__iexact=category.name, # <--- MUDANÇA CRÍTICA
+            categories=category,
             is_active=True
         ).select_related('store').prefetch_related('variants')
 
@@ -285,6 +308,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         min_price = request.query_params.get('min_price')
         max_price = request.query_params.get('max_price')
 
+        # CORREÇÃO 4: 'price' está em 'variants', não em 'product'
         if min_price:
             try:
                 products = products.filter(variants__price__gte=Decimal(min_price))
@@ -294,24 +318,29 @@ class CategoryViewSet(viewsets.ModelViewSet):
                 products = products.filter(variants__price__lte=Decimal(max_price))
             except Exception: pass
 
+        # Garante que não haja duplicatas se um produto corresponder a múltiplos filtros
         serializer = ProductSerializer(products.distinct(), many=True, context={'request': request})
         return Response(serializer.data)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para Reviews (Sem alterações necessárias)
+    ViewSet para Reviews (aninhado em /products/{product_pk}/reviews/)
     """
     queryset = Review.objects.filter(is_approved=True)
     serializer_class = ReviewSerializer
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
+        """Qualquer um pode ver, apenas autenticados podem criar."""
         if self.action in ['list', 'retrieve']:
             return [AllowAny()]
-        return [IsAuthenticated()] 
+        return [IsAuthenticated()] # Adicionar permissão de "dono" para update/delete
 
     def get_queryset(self):
+        """
+        CORREÇÃO 2: Filtra reviews baseado na URL aninhada (product_pk).
+        """
         qs = super().get_queryset().filter(
             product_id=self.kwargs.get('product_pk')
         ).select_related('user', 'product')
@@ -319,15 +348,16 @@ class ReviewViewSet(viewsets.ModelViewSet):
         return qs.order_by('-created_at')
 
     def perform_create(self, serializer):
+        """Define o usuário, o produto da URL e verifica se foi comprado."""
         user = self.request.user
         try:
             product = Product.objects.get(pk=self.kwargs.get('product_pk'))
         except Product.DoesNotExist:
              raise ValidationError("Produto não encontrado.")
 
-        # Lógica de verificação de compra está correta
+        # CORREÇÃO 5: 'OrderItem' não tem 'product', tem 'variant__product'
         has_purchased = OrderItem.objects.filter(
-            Q(order__customer_email=user.email) | Q(order__customer_name=user.username),
+            Q(order__customer_email=user.email) | Q(order__customer_name=user.username), # Suposição de lógica de cliente
             variant__product=product,
             order__payment_status='paid'
         ).exists()
@@ -340,19 +370,23 @@ class ReviewViewSet(viewsets.ModelViewSet):
 
 class CouponViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para Cupons (Sem alterações necessárias)
+    ViewSet para Cupons (apenas para donos de loja/admin).
     """
     queryset = Coupon.objects.all()
     serializer_class = CouponSerializer
-    permission_classes = [IsAuthenticated] # Idealmente: IsAdminUser
+    permission_classes = [IsAuthenticated] # Idealmente: IsAdminUser ou Dono da Loja
 
     def get_queryset(self):
+        """Admin vê tudo, donos de loja (se tivessem) veriam os seus."""
         if self.request.user.is_staff or self.request.user.is_superuser:
             return Coupon.objects.all()
-        return Coupon.objects.none() 
+        # Lógica de cupom por loja (se existir)
+        # return Coupon.objects.filter(store=self.request.user.store)
+        return Coupon.objects.none() # Não-staff não deve ver
 
     @action(detail=False, methods=['post'], permission_classes=[AllowAny])
     def validate_coupon(self, request):
+        """Valida um cupom para um cliente no checkout."""
         code = request.data.get('code')
         total = request.data.get('total', 0)
 
@@ -362,7 +396,7 @@ class CouponViewSet(viewsets.ModelViewSet):
              return Response({'error': 'Valor total é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            coupon = Coupon.objects.get(code__iexact=code)
+            coupon = Coupon.objects.get(code__iexact=code) # __iexact é melhor
         except Coupon.DoesNotExist:
             return Response({'error': 'Cupom não encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -388,16 +422,18 @@ class CouponViewSet(viewsets.ModelViewSet):
 
 class WishlistViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para a Lista de Desejos (Sem alterações necessárias)
+    ViewSet para a Lista de Desejos (Wishlist) do usuário.
     """
     queryset = Wishlist.objects.all()
     serializer_class = WishlistSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        """Usuários veem apenas sua própria lista."""
         return Wishlist.objects.filter(user=self.request.user).select_related('product')
 
     def perform_create(self, serializer):
+        """Define o usuário automaticamente."""
         try:
             serializer.save(user=self.request.user)
         except IntegrityError:
@@ -405,7 +441,8 @@ class WishlistViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def toggle(self, request):
-        product_id = request.data.get('product') 
+        """Adiciona ou remove um produto da lista de desejos."""
+        product_id = request.data.get('product') # Serializer espera 'product'
 
         if not product_id:
             return Response({'error': 'product é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)

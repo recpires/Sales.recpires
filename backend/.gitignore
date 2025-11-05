@@ -14,7 +14,8 @@ ENV/
 
 # Python environment folders sometimes named with a dot
 .venv/
-
+/static/
+/media/
 # Django
 *.log
 db.sqlite3
