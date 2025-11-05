@@ -40,9 +40,7 @@ orders_router.register('items', OrderItemViewSet, basename='order-items')
 
 
 urlpatterns = [
-    # API routes
-    # Routers expostos no root deste include. O `core.urls` monta o pacote
-    # com o prefixo `/api/` — assim evitamos endpoints em `/api/api/...`.
+    # API routes (já prefixadas com 'api/' no core/urls.py)
     path('', include(router.urls)),
     path('', include(products_router.urls)),
     path('', include(orders_router.urls)),

@@ -33,38 +33,96 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 # SERIALIZER DE PRODUTO PRINCIPAL (TOTALMENTE CORRIGIDO)
 # ---
 class ProductSerializer(serializers.ModelSerializer):
-    """
-    Serializer principal para CRIAR e LER produtos.
-    Ele agora aceita a criação de variantes aninhadas.
-    """
-    
-    # Define o serializer de variantes aninhadas.
-    # 'many=True' = é uma lista
-    # 'required=False' = não é obrigatório (para produtos simples)
-    variants = ProductVariantSerializer(many=True, required=False)
-    
-    # Campo de imagem para upload
-    # 'required=False' = a imagem é opcional
-    # 'write_only=True' = usado apenas para criar/atualizar, não mostra na leitura
-    image = serializers.ImageField(write_only=True, required=False, allow_null=True)
-    
-    # Campo de imagem para LEITURA (mostra a URL completa)
-    image_url = serializers.SerializerMethodField(read_only=True)
-    
+    """ Serializer para o Produto "Pai" (detalhes completos) """
     store_name = serializers.CharField(source='store.name', read_only=True)
+    # <--- OK: 'variants' agora usa o ProductVariantSerializer atualizado
+    variants = ProductVariantSerializer(many=True, read_only=True)
+    total_stock = serializers.IntegerField(read_only=True)
+
+    average_rating = serializers.ReadOnlyField()
+    review_count = serializers.ReadOnlyField()
+
+    categories = CategorySerializer(many=True, read_only=True)
+    image = serializers.SerializerMethodField()
+
+    # <--- ALTERADO: Adicionado 'variant_attributes'
+    variant_attributes = AttributeSerializer(many=True, read_only=True)
+
+    # <--- ADDED: Accept price/stock for simple products (write-only)
+    price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, write_only=True, required=False,
+        help_text="Price for simple products (creates default variant)"
+    )
+    stock = serializers.IntegerField(
+        write_only=True, required=False,
+        help_text="Stock for simple products (creates default variant)"
+    )
+    sku = serializers.CharField(
+        write_only=True, required=False,
+        help_text="SKU for simple products (creates default variant)"
+    )
 
     class Meta:
         model = Product
-        # --- CAMPOS CORRIGIDOS ---
-        # Adicionamos 'sku', 'price', 'stock', 'category' (para produto simples)
-        # Adicionamos 'variants' (para produto com variantes)
-        # Adicionamos 'image' (para o upload) e 'image_url' (para leitura)
+        # <--- ALTERADO: Adicionado 'variant_attributes', 'price', 'stock', 'sku'
         fields = [
-            'id', 'store', 'store_name', 'name', 'description', 'sku', 
-            'price', 'stock', 'category', 'is_active', 
-            'image', 'image_url', 'variants', 'created_at'
+            'id', 'store', 'store_name', 'name', 'description', 'is_active', 'image',
+            'categories', 'variant_attributes', 'variants', 'total_stock',
+            'average_rating', 'review_count', 'created_at', 'updated_at',
+            'price', 'stock', 'sku'  # Added for simple product creation
         ]
-        read_only_fields = ['id', 'store', 'store_name', 'created_at']
+        read_only_fields = ['id', 'store', 'created_at', 'updated_at']
+
+    def get_image(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            return obj.image.url
+        return None
+
+    def create(self, validated_data):
+        """
+        Create product and optionally a default variant if price/stock provided.
+        Handles both simple products and products with explicit variants.
+        """
+        # Extract price/stock/sku if provided (for simple products)
+        price = validated_data.pop('price', None)
+        stock = validated_data.pop('stock', None)
+        sku = validated_data.pop('sku', None)
+
+        # Create the product
+        product = Product.objects.create(**validated_data)
+
+        # If price is provided, create a default variant
+        if price is not None:
+            # Generate SKU if not provided
+            if not sku:
+                sku = f"{product.name[:3].upper()}-{product.id}-DEFAULT"
+
+            # Create default variant
+            ProductVariant.objects.create(
+                product=product,
+                sku=sku,
+                price=price,
+                stock=stock if stock is not None else 0,
+                is_active=True
+            )
+
+        return product
+
+
+class ProductLiteSerializer(serializers.ModelSerializer):
+    """
+    Serializer "leve" para listas (Sem alterações necessárias)
+    """
+    image = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    # <--- ATENÇÃO: 'slug' não existe no seu model Product. 
+    # Mantenha ou remova conforme seu model.
+    class Meta:
+        model = Product 
+        fields = ['id', 'name', 'image', 'price'] 
 
     def get_image_url(self, obj):
         """ Pega a URL da imagem principal do produto """

@@ -1,21 +1,17 @@
-import React, { useState, useEffect } from "react";
-import { Button, Input, Alert, Empty, Spin, Modal, message } from "antd";
-import { PlusOutlined, SearchOutlined, ShopOutlined } from "@ant-design/icons";
-import NavBar from "../components/navbar/NavBar";
-import Aside from "../components/aside/Aside";
-import ProductCard from "../components/common/ProductCard";
-import ProductForm from "../components/common/ProductForm";
-import ConfirmDeleteModal from "../components/common/ConfirmDeleteModal";
-import { StoreSetupModal } from "../components/common/StoreSetupModal";
-import { useCart } from "../context/CartContext";
-import authService from "../services/authService";
-import {
-  useProducts,
-  useCreateProductWithImage,
-  useDeleteProduct,
-} from "../hooks/useProducts";
-import { useMyStore } from "../hooks/useStore";
-import { Product } from "../types/product";
+import React, { useState, useEffect } from 'react';
+import { Button, Input, Alert, Empty, Spin, Modal, message } from 'antd';
+import { PlusOutlined, SearchOutlined, ShopOutlined } from '@ant-design/icons';
+import NavBar from '../components/navbar/NavBar';
+import Aside from '../components/aside/Aside';
+import ProductCard from '../components/common/ProductCard';
+import ProductForm from '../components/common/ProductForm';
+import ConfirmDeleteModal from '../components/common/ConfirmDeleteModal';
+import { StoreSetupModal } from '../components/common/StoreSetupModal';
+import { useCart } from '../context/CartContext';
+import authService from '../services/authService';
+import { useProducts, useCreateProductWithImage, useDeleteProduct } from '../hooks/useProducts';
+import { useMyStore } from '../hooks/useStore';
+import { Product } from '../types/product';
 
 const HomePage = () => {
   const user = authService.getCurrentUser();
