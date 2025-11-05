@@ -1,16 +1,51 @@
 from rest_framework import serializers
-from .models import Store, Product, ProductVariant # <--- APENAS OS MODELS QUE PRECISAMOS
+from .models import (
+    Store, Product, ProductVariant, Category, Attribute, AttributeValue,
+    Order, OrderItem, OrderStatusUpdate, Review, Coupon, Wishlist
+)
 from django.db import transaction
 
+
+# --- BASIC SERIALIZERS ---
+
+class AttributeValueSerializer(serializers.ModelSerializer):
+    """Serializer for attribute values"""
+    attribute_name = serializers.CharField(source='attribute.name', read_only=True)
+
+    class Meta:
+        model = AttributeValue
+        fields = ['id', 'attribute', 'attribute_name', 'value']
+        read_only_fields = ['id']
+
+
+class AttributeSerializer(serializers.ModelSerializer):
+    """Serializer for attributes"""
+    values = AttributeValueSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Attribute
+        fields = ['id', 'name', 'values']
+        read_only_fields = ['id']
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    """Serializer for categories"""
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'slug', 'description', 'parent', 'is_active']
+        read_only_fields = ['id', 'slug']
+
+
 class StoreSerializer(serializers.ModelSerializer):
-    """ Serializer para a Loja (Sem alterações) """
+    """Serializer for stores"""
     class Meta:
         model = Store
         fields = ['id', 'owner', 'name', 'description', 'phone', 'email', 'address', 'is_active']
         read_only_fields = ['id', 'owner']
 
+
 # ---
-# NOVO SERIALIZER PARA CRIAR VARIANTES
+# PRODUCT VARIANT SERIALIZER
 # ---
 class ProductVariantSerializer(serializers.ModelSerializer):
     """
@@ -161,12 +196,97 @@ class ProductLiteSerializer(serializers.ModelSerializer):
         """
         # 1. Remove os dados das variantes (se existirem)
         variants_data = validated_data.pop('variants', [])
-        
+
         # 2. Cria o objeto 'Product' principal
         product = Product.objects.create(**validated_data)
-        
+
         # 3. Se houver dados de variantes, cria cada uma
         for variant_data in variants_data:
             ProductVariant.objects.create(product=product, **variant_data)
-            
+
         return product
+
+
+# --- ORDER SERIALIZERS ---
+
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for order status updates"""
+    class Meta:
+        model = OrderStatusUpdate
+        fields = ['id', 'order', 'status', 'note', 'is_automatic', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    """Serializer for order items"""
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    variant_name = serializers.CharField(source='variant.name', read_only=True)
+    subtotal = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'order', 'product', 'product_name', 'variant', 'variant_name',
+                 'quantity', 'unit_price', 'subtotal']
+        read_only_fields = ['id']
+
+    def get_subtotal(self, obj):
+        return obj.get_subtotal()
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    """Serializer for orders"""
+    items = OrderItemSerializer(many=True, read_only=True)
+    status_updates = OrderStatusUpdateSerializer(many=True, read_only=True)
+    store_name = serializers.CharField(source='store.name', read_only=True)
+
+    class Meta:
+        model = Order
+        fields = ['id', 'store', 'store_name', 'customer_name', 'customer_email',
+                 'customer_phone', 'shipping_address', 'status', 'total_amount',
+                 'payment_method', 'payment_status', 'paid_at', 'created_at',
+                 'updated_at', 'items', 'status_updates']
+        read_only_fields = ['id', 'total_amount', 'paid_at', 'created_at', 'updated_at']
+
+
+# --- REVIEW SERIALIZERS ---
+
+class ReviewSerializer(serializers.ModelSerializer):
+    """Serializer for product reviews"""
+    user_name = serializers.CharField(source='user.username', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ['id', 'product', 'product_name', 'user', 'user_name', 'rating',
+                 'comment', 'is_approved', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+
+
+# --- COUPON SERIALIZERS ---
+
+class CouponSerializer(serializers.ModelSerializer):
+    """Serializer for coupons"""
+    is_valid_now = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Coupon
+        fields = ['id', 'code', 'discount_type', 'discount_value', 'min_purchase_amount',
+                 'max_discount_amount', 'usage_limit', 'usage_count', 'valid_from',
+                 'valid_until', 'is_active', 'is_valid_now', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'usage_count', 'created_at', 'updated_at']
+
+    def get_is_valid_now(self, obj):
+        return obj.is_valid()
+
+
+# --- WISHLIST SERIALIZERS ---
+
+class WishlistSerializer(serializers.ModelSerializer):
+    """Serializer for wishlist"""
+    product_details = ProductLiteSerializer(source='product', read_only=True)
+    user_name = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ['id', 'user', 'user_name', 'product', 'product_details', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']
