@@ -1,20 +1,20 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { App as AntApp } from 'antd';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import HomePage from './pages/HomePage';
-import SalesPage from './pages/SalesPage';
-import ClientsPage from './pages/ClientsPage';
-import ReportsPage from './pages/ReportsPage';
-import SettingsPage from './pages/SettingsPage';
-import CheckoutPage from './pages/CheckoutPage';
-import CartPage from './pages/CartPage';
-import OrderHistoryPage from './pages/OrderHistoryPage';
-import ProductDetailPage from './pages/ProductDetailPage';
-import WishlistPage from './pages/WishlistPage';
-import authService from './services/authService';
-import { CartProvider } from './context/CartContext';
+import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { App as AntApp } from "antd";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import HomePage from "./pages/HomePage";
+import SalesPage from "./pages/SalesPage";
+import ClientsPage from "./pages/ClientsPage";
+import ReportsPage from "./pages/ReportsPage";
+import SettingsPage from "./pages/SettingsPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import CartPage from "./pages/CartPage";
+import OrderHistoryPage from "./pages/OrderHistoryPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
+import WishlistPage from "./pages/WishlistPage";
+import authService from "./services/authService";
+import { CartProvider } from "./context/CartContext";
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(authService.isAuthenticated());
@@ -29,16 +29,16 @@ function App() {
     };
 
     // Listener customizado para mudanças de autenticação
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('auth-change', handleStorageChange);
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("auth-change", handleStorageChange);
 
     return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('auth-change', handleStorageChange);
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("auth-change", handleStorageChange);
     };
   }, []);
 
-  const handleLogin = (email: string, password: string) => {
+  const handleLogin = (_email: string, _password: string) => {
     setIsLoggedIn(true);
   };
 
@@ -49,11 +49,23 @@ function App() {
           <Routes>
             <Route
               path="/"
-              element={isLoggedIn ? <Navigate to="/home" /> : <LoginPage onLogin={handleLogin} />}
+              element={
+                isLoggedIn ? (
+                  <Navigate to="/home" />
+                ) : (
+                  <LoginPage onLogin={handleLogin} />
+                )
+              }
             />
             <Route
               path="/login"
-              element={isLoggedIn ? <Navigate to="/home" /> : <LoginPage onLogin={handleLogin} />}
+              element={
+                isLoggedIn ? (
+                  <Navigate to="/home" />
+                ) : (
+                  <LoginPage onLogin={handleLogin} />
+                )
+              }
             />
             <Route
               path="/register"

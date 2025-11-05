@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from sales.models import Product, ProductVariant
 from django.db.utils import IntegrityError
+from django.db import connection
 
 
 class Command(BaseCommand):
@@ -32,8 +33,22 @@ class Command(BaseCommand):
                 skipped += 1
                 continue
 
-            # Build SKU for variant
-            sku = p.sku if p.sku else f"PROD-{p.id}"
+            # Fetch legacy product fields directly from the DB when model no longer
+            # exposes them (the current Product model was refactored).
+            def _db_get(field):
+                with connection.cursor() as cursor:
+                    cursor.execute(f"SELECT {field} FROM sales_product WHERE id=%s", [p.id])
+                    row = cursor.fetchone()
+                return row[0] if row else None
+
+            # Build SKU for variant (prefer DB column if present)
+            sku_val = _db_get('sku')
+            try:
+                sku = sku_val if sku_val is not None else (p.sku if hasattr(p, 'sku') else None)
+            except Exception:
+                sku = sku_val
+            if not sku:
+                sku = f"PROD-{p.id}"
 
             # Resolve conflicts
             if ProductVariant.objects.filter(sku=sku).exists():
@@ -53,21 +68,28 @@ class Command(BaseCommand):
                     created += 1
                 else:
                     with transaction.atomic():
+                        # Read other legacy fields from DB if model doesn't expose them
+                        price = _db_get('price') if _db_get('price') is not None else getattr(p, 'price', None)
+                        color = _db_get('color') if _db_get('color') is not None else getattr(p, 'color', None)
+                        size = _db_get('size') if _db_get('size') is not None else getattr(p, 'size', None)
+                        stock = _db_get('stock') if _db_get('stock') is not None else getattr(p, 'stock', 0)
+                        image = _db_get('image') if _db_get('image') is not None else getattr(p, 'image', None)
+                        is_active = _db_get('is_active') if _db_get('is_active') is not None else getattr(p, 'is_active', True)
+
                         v = ProductVariant.objects.create(
                             product=p,
                             sku=sku,
-                            price=p.price,
-                            color=p.color if p.color else None,
-                            size=p.size if p.size else None,
-                            stock=p.stock,
-                            image=p.image,
-                            is_active=p.is_active,
+                            price=price,
+                            stock=stock,
+                            image=image,
+                            is_active=is_active,
                         )
 
                         if clear_fields:
-                            p.sku = None
-                            p.stock = 0
-                            p.save()
+                            # Update underlying DB row since Product model may no longer
+                            # expose sku/stock fields after refactor.
+                            with connection.cursor() as cursor:
+                                cursor.execute("UPDATE sales_product SET sku=NULL, stock=0 WHERE id=%s", [p.id])
 
                         self.stdout.write(f"Created variant {v.sku} for product {p.id} ('{p.name}')")
                         created += 1

@@ -5,7 +5,7 @@ import { Product, ProductVariant } from "../types/product";
 // --- INTERFACE (sem mudanças) ---
 interface CartItem {
   productId: number;
-  variantId: number;
+  variantId: number | null;
   quantity: number;
   product: Product;
 }
@@ -20,15 +20,22 @@ type CartAction =
       type: "ADD_ITEM";
       payload: {
         productId: number;
-        variantId: number;
+        variantId: number | null;
         quantity: number;
         product: Product;
       };
     }
-  | { type: "REMOVE_ITEM"; payload: { productId: number; variantId: number } }
+  | {
+      type: "REMOVE_ITEM";
+      payload: { productId: number; variantId: number | null };
+    }
   | {
       type: "UPDATE_QUANTITY";
-      payload: { productId: number; variantId: number; quantity: number };
+      payload: {
+        productId: number;
+        variantId: number | null;
+        quantity: number;
+      };
     }
   | { type: "CLEAR_CART" }
   | { type: "LOAD_CART"; payload: any[] }; // Tipado como any[] para limpeza no reducer
@@ -93,8 +100,8 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         );
         return state;
       }
-      // Agora TS sabe que 'variant' existe e tem 'stock', 'sku', etc.
-      const availableStock = variant.stock;
+      // Agora TS sabe que 'variant' existe; normalize stock para número (0 quando ausente)
+      const availableStock = Number(variant.stock ?? 0);
 
       const existingItemIndex = state.items.findIndex(
         (item) => item.productId === productId && item.variantId === variantId
@@ -102,7 +109,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
 
       if (existingItemIndex > -1) {
         // Item existente
-        const currentItem = state.items[existingItemIndex]; // Garante que currentItem não é undefined
+        const currentItem = state.items[existingItemIndex]!; // Non-null assertion
         const currentQuantity = currentItem.quantity;
         const potentialNewQuantity = currentQuantity + quantity;
         const finalQuantity = Math.min(potentialNewQuantity, availableStock);
@@ -116,9 +123,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         if (finalQuantity === currentQuantity) return state; // Sem mudanças
 
         const newItems = [...state.items];
-        // CORREÇÃO: Cria um novo objeto completo para garantir a tipagem correta
+        // Cria um novo objeto completo para garantir a tipagem correta
         newItems[existingItemIndex] = {
-          ...currentItem, // Espalha o item existente (que é CartItem)
+          ...(currentItem as CartItem), // Espalha o item existente (que é CartItem)
           quantity: finalQuantity, // Sobrescreve apenas a quantidade
         };
         newState = { ...state, items: newItems };
@@ -174,7 +181,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       );
       if (itemIndex === -1) return state;
 
-      const currentItem = state.items[itemIndex]; // Garante que existe
+      const currentItem = state.items[itemIndex]!; // Non-null assertion
       // CORREÇÃO: Acessa product de currentItem que sabemos existir
       const product = currentItem.product;
 
@@ -197,7 +204,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         );
         return state; // Ou remove o item?
       }
-      const availableStock = variant.stock;
+      const availableStock = Number(variant.stock ?? 0);
 
       if (quantity <= 0) {
         newState = {
@@ -216,9 +223,9 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
         if (finalQuantity === currentItem.quantity) return state; // Sem mudanças
 
         const newItems = [...state.items];
-        // CORREÇÃO: Cria um novo objeto completo para garantir a tipagem correta
+        // Cria um novo objeto completo para garantir a tipagem correta
         newItems[itemIndex] = {
-          ...currentItem, // Espalha o item existente (que é CartItem)
+          ...(currentItem as CartItem), // Espalha o item existente (que é CartItem)
           quantity: finalQuantity, // Sobrescreve apenas a quantidade
         };
         newState = { ...state, items: newItems };
@@ -242,13 +249,14 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
           if (
             rest &&
             typeof rest.productId === "number" &&
-            typeof rest.variantId === "number" &&
+            (typeof rest.variantId === "number" || rest.variantId === null) &&
             typeof rest.quantity === "number" &&
             rest.product
           ) {
             // Remove campos extras ou inválidos se necessário
             const cleanItem: CartItem = {
               productId: rest.productId,
+              // variantId pode ser número ou null (manter o null se estiver salvo assim)
               variantId: rest.variantId,
               quantity: rest.quantity,
               product: rest.product, // Assume que 'product' está no formato correto
@@ -263,9 +271,10 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       return { ...state, items: loadedItems };
 
     default:
-      // Ignora o aviso de variável não utilizada (para exhaustiveness check)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const _: never = action;
+      // Exhaustiveness check: garante que todas as ações foram tratadas.
+      // A variável é referenciada com `void` para evitar warning de variável não utilizada.
+      const _exhaustiveCheck: never = action;
+      void _exhaustiveCheck;
       return state;
   }
 };

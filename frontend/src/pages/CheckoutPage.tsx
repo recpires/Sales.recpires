@@ -10,7 +10,6 @@ import {
   Row,
   Col,
   Divider,
-  Select,
   Radio,
   Tag,
   Space,
@@ -53,9 +52,7 @@ const checkoutSchema = z.object({
   neighborhood: z.string().min(3, "Bairro é obrigatório"),
   city: z.string().min(3, "Cidade é obrigatória"),
   state: z.string().length(2, "Estado deve ter 2 letras"),
-  payment_method: z.enum(["credit_card", "debit_card", "pix", "boleto"], {
-    errorMap: () => ({ message: "Selecione um método de pagamento" }),
-  }),
+  payment_method: z.enum(["credit_card", "debit_card", "pix", "boleto"]),
 });
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
@@ -589,8 +586,8 @@ const CheckoutPage: React.FC = () => {
                       {variant && (
                         <div>
                           <Text type="secondary" className="text-xs">
-                            {variant.size}{" "}
-                            {variant.color ? `• ${variant.color}` : ""}
+                            {variant?.size ?? ""}{" "}
+                            {variant?.color ? `• ${variant.color}` : ""}
                           </Text>
                         </div>
                       )}

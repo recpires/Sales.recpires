@@ -1,5 +1,9 @@
-import api from './api';
-import { Coupon, CouponValidationRequest, CouponValidationResponse, CouponCreateInput } from '../types/coupon';
+import api from "./api";
+import {
+  Coupon,
+  CouponValidationResponse,
+  CouponCreateInput,
+} from "../types/coupon";
 
 export interface CouponListResponse {
   count: number;
@@ -13,7 +17,7 @@ class CouponService {
    * Get all coupons
    */
   async getCoupons(): Promise<CouponListResponse> {
-    const response = await api.get<CouponListResponse>('/coupons/');
+    const response = await api.get<CouponListResponse>("/coupons/");
     return response.data;
   }
 
@@ -28,8 +32,14 @@ class CouponService {
   /**
    * Validate coupon code
    */
-  async validateCoupon(code: string, total: number): Promise<CouponValidationResponse> {
-    const response = await api.post<CouponValidationResponse>('/coupons/validate_coupon/', { code, total });
+  async validateCoupon(
+    code: string,
+    total: number
+  ): Promise<CouponValidationResponse> {
+    const response = await api.post<CouponValidationResponse>(
+      "/coupons/validate_coupon/",
+      { code, total }
+    );
     return response.data;
   }
 
@@ -37,14 +47,17 @@ class CouponService {
    * Create coupon (admin only)
    */
   async createCoupon(data: CouponCreateInput): Promise<Coupon> {
-    const response = await api.post<Coupon>('/coupons/', data);
+    const response = await api.post<Coupon>("/coupons/", data);
     return response.data;
   }
 
   /**
    * Update coupon (admin only)
    */
-  async updateCoupon(id: number, data: Partial<CouponCreateInput>): Promise<Coupon> {
+  async updateCoupon(
+    id: number,
+    data: Partial<CouponCreateInput>
+  ): Promise<Coupon> {
     const response = await api.patch<Coupon>(`/coupons/${id}/`, data);
     return response.data;
   }

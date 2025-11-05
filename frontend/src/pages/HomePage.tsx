@@ -20,10 +20,14 @@ const HomePage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isStoreSetupModalOpen, setIsStoreSetupModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { data, isLoading, error } = useProducts();
-  const { data: myStore, isLoading: isLoadingStore, error: storeError } = useMyStore();
+  const {
+    data: myStore,
+    isLoading: isLoadingStore,
+    error: storeError,
+  } = useMyStore();
   const allProducts = data?.results || [];
 
   const isAdmin = user?.is_staff || user?.is_superuser;
@@ -42,18 +46,21 @@ const HomePage = () => {
   const filteredProducts = allProducts.filter((product) => {
     const q = searchTerm.toLowerCase();
     if (!q) return true;
-    const matchesName = product.name.toLowerCase().includes(q);
+    const matchesName = (product.name ?? "").toLowerCase().includes(q);
     const matchesDesc = product.description?.toLowerCase().includes(q);
-    const matchesSku = (product.sku ?? '').toLowerCase().includes(q);
+    const matchesSku = (product.sku ?? "").toLowerCase().includes(q);
     const matchesVariantSku =
       Array.isArray(product.variants) &&
-      product.variants.some((v: any) => (v.sku ?? '').toLowerCase().includes(q));
+      product.variants.some((v: any) =>
+        (v.sku ?? "").toLowerCase().includes(q)
+      );
     return matchesName || matchesDesc || matchesSku || matchesVariantSku;
   });
 
   // Normalize product objects so UI code that expects price/stock continues working
   const normalizedProducts = filteredProducts.map((p: any) => {
-    const firstVariant = Array.isArray(p.variants) && p.variants.length > 0 ? p.variants[0] : null;
+    const firstVariant =
+      Array.isArray(p.variants) && p.variants.length > 0 ? p.variants[0] : null;
     return {
       ...p,
       price: p.price ?? firstVariant?.price ?? 0,
@@ -70,40 +77,44 @@ const HomePage = () => {
 
   const { dispatch } = useCart();
 
-  const handleAddToCart = (data: {
-    product: Product;
-    variantId?: number | null;
-    quantity?: number;
-    variantSnapshot?: any | null;
-  }) => {
+  const handleAddToCart = (data: any) => {
     try {
-      const product = data.product;
-      const variantId = data.variantId ?? null;
-      const quantity = data.quantity ?? 1;
-      const variantSnapshot = data.variantSnapshot ?? null;
+      // Accept either a Product object (from ProductCard) or an enriched object
+      const product: Product = data.product ?? data;
+      const variantId: number | null =
+        typeof data.variantId === "number" ? data.variantId : null;
+      const quantity: number =
+        typeof data.quantity === "number" ? data.quantity : 1;
 
       dispatch({
-        type: 'ADD_ITEM',
-        payload: { productId: product.id, variantId, quantity, product, variantSnapshot },
+        type: "ADD_ITEM",
+        payload: {
+          productId: product.id,
+          variantId,
+          quantity,
+          product,
+        },
       });
-      message.success('Produto adicionado ao carrinho');
+      message.success("Produto adicionado ao carrinho");
     } catch (err) {
-      message.error('Erro ao adicionar ao carrinho');
+      message.error("Erro ao adicionar ao carrinho");
     }
   };
 
   const handleCreateProduct = async (data: any, image?: File) => {
     try {
       await createProductMutation.mutateAsync({ data, image });
-      message.success('Produto criado com sucesso!');
+      message.success("Produto criado com sucesso!");
       setIsModalOpen(false);
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Erro ao criar produto');
+      message.error(error.response?.data?.message || "Erro ao criar produto");
       throw error;
     }
   };
 
-  const handleDeleteProduct = (product: Product) => {
+  const handleDeleteProduct = (productId: number) => {
+    const product =
+      normalizedProducts.find((p: any) => p.id === productId) || null;
     setProductToDelete(product);
     setIsDeleteModalOpen(true);
   };
@@ -113,11 +124,11 @@ const HomePage = () => {
 
     try {
       await deleteProductMutation.mutateAsync(productToDelete.id);
-      message.success('Produto excluído com sucesso!');
+      message.success("Produto excluído com sucesso!");
       setIsDeleteModalOpen(false);
       setProductToDelete(null);
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Erro ao excluir produto');
+      message.error(error.response?.data?.message || "Erro ao excluir produto");
     }
   };
 
@@ -127,7 +138,7 @@ const HomePage = () => {
   };
 
   const handleStoreSetupSuccess = () => {
-    message.success('Loja configurada! Agora você pode criar produtos.');
+    message.success("Loja configurada! Agora você pode criar produtos.");
     setIsStoreSetupModalOpen(false);
   };
 
@@ -151,7 +162,11 @@ const HomePage = () => {
                   showIcon
                   icon={<ShopOutlined />}
                   action={
-                    <Button size="small" type="primary" onClick={() => setIsStoreSetupModalOpen(true)}>
+                    <Button
+                      size="small"
+                      type="primary"
+                      onClick={() => setIsStoreSetupModalOpen(true)}
+                    >
                       Configurar Agora
                     </Button>
                   }
@@ -162,9 +177,11 @@ const HomePage = () => {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                    Olá, {user?.username || 'Admin'}!
+                    Olá, {user?.username || "Admin"}!
                   </h1>
-                  <p className="text-gray-600">Gerencie seus produtos e vendas</p>
+                  <p className="text-gray-600">
+                    Gerencie seus produtos e vendas
+                  </p>
                 </div>
                 {hasStore && (
                   <Button
@@ -182,7 +199,9 @@ const HomePage = () => {
                 placeholder="Buscar produtos por nome, descrição ou SKU..."
                 prefix={<SearchOutlined className="text-gray-400" />}
                 value={searchTerm}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setSearchTerm(e.target.value)
+                }
                 className="rounded-lg"
                 allowClear
               />
@@ -195,9 +214,11 @@ const HomePage = () => {
                   🔥 Ofertas Imperdíveis para Você!
                 </h1>
                 <p className="text-white text-lg font-medium mb-2">
-                  Olá, {user?.username || 'Visitante'}!
+                  Olá, {user?.username || "Visitante"}!
                 </p>
-                <p className="text-white/90">Aproveite os melhores preços e ofertas especiais</p>
+                <p className="text-white/90">
+                  Aproveite os melhores preços e ofertas especiais
+                </p>
               </div>
 
               {/* Campo de Pesquisa */}
@@ -207,7 +228,9 @@ const HomePage = () => {
                   placeholder="Buscar produtos por nome, descrição ou SKU..."
                   prefix={<SearchOutlined className="text-gray-400" />}
                   value={searchTerm}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setSearchTerm(e.target.value)
+                  }
                   className="rounded-lg shadow-md"
                   allowClear
                 />
@@ -242,7 +265,11 @@ const HomePage = () => {
           ) : error ? (
             <Alert
               message="Erro ao carregar produtos"
-              description={error instanceof Error ? error.message : 'Ocorreu um erro inesperado'}
+              description={
+                error instanceof Error
+                  ? error.message
+                  : "Ocorreu um erro inesperado"
+              }
               type="error"
               showIcon
             />
@@ -286,7 +313,7 @@ const HomePage = () => {
       {/* Modal de Confirmação de Exclusão */}
       <ConfirmDeleteModal
         isOpen={isDeleteModalOpen}
-        productName={productToDelete?.name || ''}
+        productName={productToDelete?.name || ""}
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         loading={deleteProductMutation.isPending}

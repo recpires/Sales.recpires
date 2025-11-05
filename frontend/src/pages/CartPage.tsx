@@ -19,7 +19,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useSpring, animated } from "react-spring";
 import { useCart } from "../context/CartContext";
-import { useTranslation } from "react-i18next";
+// translations not required in this page
 import { NavBar } from "../components/navbar";
 
 const { Title, Text } = Typography;
@@ -27,7 +27,7 @@ const { Title, Text } = Typography;
 const CartPage: React.FC = () => {
   const { state, dispatch, getTotal } = useCart();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  // translation not used in this component (kept import for consistency)
 
   // Animação de fade-in
   const fadeIn = useSpring({
@@ -188,8 +188,8 @@ const CartPage: React.FC = () => {
                               {variant && (
                                 <div className="mb-2">
                                   <Text type="secondary" className="text-sm">
-                                    Variante: {variant.size || ""}{" "}
-                                    {variant.color ? `• ${variant.color}` : ""}
+                                    Variante: {variant?.size ?? ""}{" "}
+                                    {variant?.color ? `• ${variant.color}` : ""}
                                   </Text>
                                   <br />
                                   <Text type="secondary" className="text-xs">
@@ -223,7 +223,7 @@ const CartPage: React.FC = () => {
                                     value={item.quantity}
                                     onChange={(val: number | null) =>
                                       dispatch({
-                                        type: "SET_QUANTITY",
+                                        type: "UPDATE_QUANTITY",
                                         payload: {
                                           productId: item.productId,
                                           variantId: item.variantId,
