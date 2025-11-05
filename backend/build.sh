@@ -10,4 +10,5 @@ pip install -r requirements.txt
 python manage.py collectstatic --no-input
 
 # Run database migrations
-python manage.py migrate --no-input
+# --fake-initial: Skip CreateModel operations if tables already exist
+python manage.py migrate --no-input --fake-initial
