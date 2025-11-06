@@ -5,12 +5,11 @@ export interface ProductVariant {
   sku: string;
   price: number;
   stock: number;
-  created_at?: string;
-  updated_at?: string;
+  // Remova as linhas 7 e 8 originais. Mantenha apenas estas:
   is_active: boolean;
   image: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at: string; // Agora é obrigatório
+  updated_at: string; // Agora é obrigatório
   variants?: ProductVariant[];
   average_rating?: number;
   review_count?: number;
@@ -46,8 +45,45 @@ export interface Category {
   updated_at: string;
 }
 
-export type ColorChoice = 'red' | 'blue' | 'green' | 'black' | 'white' | 'yellow' | 'pink' | 'purple' | 'orange' | 'gray';
-export type SizeChoice = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL';
+export type ColorChoice =
+  | "red"
+  | "blue"
+  | "green"
+  | "black"
+  | "white"
+  | "yellow"
+  | "pink"
+  | "purple"
+  | "orange"
+  | "gray";
+export type SizeChoice = "XS" | "S" | "M" | "L" | "XL" | "XXL";
 
-export type ProductCreateInput = Omit<Product, 'id' | 'created_at' | 'updated_at' | 'color_display' | 'size_display' | 'store' | 'store_name' | 'seller_name' | 'average_rating' | 'review_count' | 'categories'>;
-export type ProductCreateInputWithoutImage = Omit<Product, 'id' | 'created_at' | 'updated_at' | 'color_display' | 'size_display' | 'store' | 'store_name' | 'seller_name' | 'image' | 'average_rating' | 'review_count' | 'categories'>;
+export type ProductCreateInput = Omit<
+  Product,
+  | "id"
+  | "created_at"
+  | "updated_at"
+  | "color_display"
+  | "size_display"
+  | "store"
+  | "store_name"
+  | "seller_name"
+  | "average_rating"
+  | "review_count"
+  | "categories"
+>;
+export type ProductCreateInputWithoutImage = Omit<
+  Product,
+  | "id"
+  | "created_at"
+  | "updated_at"
+  | "color_display"
+  | "size_display"
+  | "store"
+  | "store_name"
+  | "seller_name"
+  | "image"
+  | "average_rating"
+  | "review_count"
+  | "categories"
+>;

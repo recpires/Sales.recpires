@@ -158,12 +158,18 @@ const CheckoutPage: React.FC = () => {
       data.complement ? `, ${data.complement}` : ""
     }, ${data.neighborhood}, ${data.city}/${data.state}, CEP: ${data.cep}`;
 
+    // Mapeia o método de pagamento do frontend para o que o backend aceita ('online' ou 'cod')
+    // Assumindo que pix, cartão e boleto são todos 'online'
+    const backendPaymentMethod =
+      data.payment_method === "cod" ? "cod" : "online";
+
     const payload = {
       customer_name: data.customer_name,
       customer_email: data.customer_email,
       customer_phone: data.customer_phone,
       shipping_address: fullAddress,
       status: "pending",
+      payment_method: backendPaymentMethod, // Linha corrigida para usar o valor mapeado
       items,
     };
 
@@ -589,8 +595,7 @@ const CheckoutPage: React.FC = () => {
                       {variant && (
                         <div>
                           <Text type="secondary" className="text-xs">
-                            {variant.size}{" "}
-                            {variant.color ? `• ${variant.color}` : ""}
+                            {variant.option_description}
                           </Text>
                         </div>
                       )}

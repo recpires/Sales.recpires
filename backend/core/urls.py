@@ -19,6 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import JsonResponse
+from django.db import connection # Importado para o health_check
 
 def api_root(request):
     """Root endpoint with API information"""
@@ -49,7 +50,6 @@ def api_root(request):
 
 def health_check(request):
     """Health check endpoint for monitoring"""
-    from django.db import connection
     try:
         # Test database connection
         connection.ensure_connection()
@@ -73,7 +73,8 @@ urlpatterns = [
     path('api/', include('sales.urls')),
 ]
 
-# Serve media files (in development and production if not using S3)
-# Media files will be served by Django/WhiteNoise if USE_S3=False
-if not settings.USE_S3:
+# **Mapeamento de Mídia (Recomendado)**
+# Serve arquivos de mídia APENAS em ambiente de DESENVOLVIMENTO (DEBUG=True).
+# Em produção, o servidor web ou o S3 deve lidar com isso.
+if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
