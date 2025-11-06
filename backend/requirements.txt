@@ -6,8 +6,8 @@ django-cors-headers==4.9.0
 django-extensions==3.2.3
 django-storages==1.14.4
 djangorestframework==3.16.1
-djangorestframework_simplejwt==5.5.1
-drf-nested-routers==0.93.4  # <--- VERSÃO ADICIONADA
+djangorestframework-simplejwt==5.5.1
+drf-nested-routers==0.95.0
 gunicorn==23.0.0
 Pillow==11.1.0
 psycopg2-binary==2.9.10
@@ -15,11 +15,5 @@ pydotplus==2.0.2
 PyJWT==2.10.1
 pyparsing==3.1.1
 python-decouple==3.8
-rest-framework-simplejwt==0.0.2
 sqlparse==0.5.3
-gunicorn==23.0.0
 whitenoise==6.8.2
-dj-database-url==2.3.0
-django-storages==1.14.4
-boto3==1.35.36
-drf-nested-routers==0.95.0

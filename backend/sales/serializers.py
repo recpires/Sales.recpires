@@ -1,172 +1,257 @@
 from rest_framework import serializers
-from .models import Store, Product, ProductVariant # <--- APENAS OS MODELS QUE PRECISAMOS
+from django.contrib.auth.models import User
+from .models import (
+    Store, Product, ProductVariant, Category, Coupon,
+    Order, OrderItem, OrderStatusUpdate,
+    Supplier, PurchaseOrder, PurchaseOrderItem # Novos modelos
+)
 from django.db import transaction
 
+# --- General Serializers ---
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'email', 'first_name', 'last_name')
+        read_only_fields = ('id', 'username', 'email')
+
 class StoreSerializer(serializers.ModelSerializer):
-    """ Serializer para a Loja (Sem alterações) """
+    user = UserSerializer(read_only=True)
+    
     class Meta:
         model = Store
-        fields = ['id', 'owner', 'name', 'description', 'phone', 'email', 'address', 'is_active']
-        read_only_fields = ['id', 'owner']
+        fields = '__all__'
+        read_only_fields = ('user',)
 
-# ---
-# NOVO SERIALIZER PARA CRIAR VARIANTES
-# ---
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'
+        read_only_fields = ('store',)
+
+class CouponSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Coupon
+        fields = '__all__'
+        read_only_fields = ('store',)
+
+# --- Product Serializers ---
+
 class ProductVariantSerializer(serializers.ModelSerializer):
-    """
-    Serializer para as Variantes.
-    Usado para ler E escrever as variantes dentro do Produto.
-    """
+    stock_status = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductVariant
-        fields = [
-            'id', 
-            'name',  # <--- O campo "Nome da Variante" (ex: "Tamanho M")
-            'sku', 
-            'price', 
-            'stock'
-        ]
-        read_only_fields = ['id']
+        fields = '__all__'
+        read_only_fields = ('product',)
 
+    def get_stock_status(self, obj):
+        if obj.stock_quantity > 10:
+            return "Em Estoque"
+        elif obj.stock_quantity > 0:
+            return "Baixo Estoque"
+        else:
+            return "Esgotado"
 
-# ---
-# SERIALIZER DE PRODUTO PRINCIPAL (TOTALMENTE CORRIGIDO)
-# ---
 class ProductSerializer(serializers.ModelSerializer):
-    """ Serializer para o Produto "Pai" (detalhes completos) """
-    store_name = serializers.CharField(source='store.name', read_only=True)
-    # <--- OK: 'variants' agora usa o ProductVariantSerializer atualizado
     variants = ProductVariantSerializer(many=True, read_only=True)
-    total_stock = serializers.IntegerField(read_only=True)
-
-    average_rating = serializers.ReadOnlyField()
-    review_count = serializers.ReadOnlyField()
-
-    categories = CategorySerializer(many=True, read_only=True)
-    image = serializers.SerializerMethodField()
-
-    # <--- ALTERADO: Adicionado 'variant_attributes'
-    variant_attributes = AttributeSerializer(many=True, read_only=True)
-
-    # <--- ADDED: Accept price/stock for simple products (write-only)
-    price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, write_only=True, required=False,
-        help_text="Price for simple products (creates default variant)"
-    )
-    stock = serializers.IntegerField(
-        write_only=True, required=False,
-        help_text="Stock for simple products (creates default variant)"
-    )
-    sku = serializers.CharField(
-        write_only=True, required=False,
-        help_text="SKU for simple products (creates default variant)"
-    )
+    category_name = serializers.CharField(source='category.name', read_only=True)
 
     class Meta:
         model = Product
-        # <--- ALTERADO: Adicionado 'variant_attributes', 'price', 'stock', 'sku'
-        fields = [
-            'id', 'store', 'store_name', 'name', 'description', 'is_active', 'image',
-            'categories', 'variant_attributes', 'variants', 'total_stock',
-            'average_rating', 'review_count', 'created_at', 'updated_at',
-            'price', 'stock', 'sku'  # Added for simple product creation
-        ]
-        read_only_fields = ['id', 'store', 'created_at', 'updated_at']
+        fields = '__all__'
+        read_only_fields = ('store',)
 
-    def get_image(self, obj):
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            return obj.image.url
-        return None
+# --- Order Serializers (Sales) ---
+
+class OrderItemSerializer(serializers.ModelSerializer):
+    variant_name = serializers.CharField(source='variant.__str__', read_only=True)
+    product_name = serializers.CharField(source='variant.product.name', read_only=True)
+    sku = serializers.CharField(source='variant.sku', read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ('id', 'variant', 'quantity', 'price', 'variant_name', 'product_name', 'sku')
+        read_only_fields = ('price',) # Price is set automatically
+
+class OrderStatusUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderStatusUpdate
+        fields = '__all__'
+        read_only_fields = ('order', 'timestamp')
+
+class OrderSerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True)
+    status_updates = OrderStatusUpdateSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = Order
+        fields = '__all__'
+        read_only_fields = ('store', 'total_amount', 'discount_amount', 'created_at', 'updated_at')
 
     def create(self, validated_data):
-        """
-        Create product and optionally a default variant if price/stock provided.
-        Handles both simple products and products with explicit variants.
-        """
-        # Extract price/stock/sku if provided (for simple products)
-        price = validated_data.pop('price', None)
-        stock = validated_data.pop('stock', None)
-        sku = validated_data.pop('sku', None)
-
-        # Create the product
-        product = Product.objects.create(**validated_data)
-
-        # If price is provided, create a default variant
-        if price is not None:
-            # Generate SKU if not provided
-            if not sku:
-                sku = f"{product.name[:3].upper()}-{product.id}-DEFAULT"
-
-            # Create default variant
-            ProductVariant.objects.create(
-                product=product,
-                sku=sku,
-                price=price,
-                stock=stock if stock is not None else 0,
-                is_active=True
+        items_data = validated_data.pop('items')
+        
+        # Início da transação atômica para garantir a integridade do estoque
+        with transaction.atomic():
+            order = Order.objects.create(**validated_data)
+            
+            # Criação do primeiro status de atualização
+            OrderStatusUpdate.objects.create(
+                order=order, 
+                old_status='', 
+                new_status=order.status, 
+                notes="Pedido criado"
             )
 
-        return product
-
-
-class ProductLiteSerializer(serializers.ModelSerializer):
-    """
-    Serializer "leve" para listas (Sem alterações necessárias)
-    """
-    image = serializers.SerializerMethodField()
-    price = serializers.SerializerMethodField()
-    # <--- ATENÇÃO: 'slug' não existe no seu model Product. 
-    # Mantenha ou remova conforme seu model.
-    class Meta:
-        model = Product 
-        fields = ['id', 'name', 'image', 'price'] 
-
-    def get_image_url(self, obj):
-        """ Pega a URL da imagem principal do produto """
-        request = self.context.get('request')
-        if obj.image and request:
-            return request.build_absolute_uri(obj.image.url)
-        elif obj.image:
-            return obj.image.url
-        return None
-        
-    def validate(self, data):
-        """
-        Validação customizada:
-        - Se 'variants' existir, 'price' e 'stock' principais devem ser nulos.
-        - Se 'variants' não existir, 'price' e 'stock' principais são obrigatórios.
-        """
-        has_variants = 'variants' in data and data['variants']
-        
-        if has_variants:
-            # Produto com variantes: limpa preço/estoque principal
-            data['price'] = None
-            data['stock'] = None
-        else:
-            # Produto simples: valida preço/estoque principal
-            if 'price' not in data or data['price'] is None:
-                raise serializers.ValidationError({"price": "Preço é obrigatório para produtos simples."})
-            if 'stock' not in data or data['stock'] is None:
-                raise serializers.ValidationError({"stock": "Estoque é obrigatório para produtos simples."})
-                
-        return data
-
-    @transaction.atomic  # Garante que tudo seja salvo junto (ou nada)
-    def create(self, validated_data):
-        """
-        Sobrescreve o método 'create' para lidar com variantes.
-        """
-        # 1. Remove os dados das variantes (se existirem)
-        variants_data = validated_data.pop('variants', [])
-        
-        # 2. Cria o objeto 'Product' principal
-        product = Product.objects.create(**validated_data)
-        
-        # 3. Se houver dados de variantes, cria cada uma
-        for variant_data in variants_data:
-            ProductVariant.objects.create(product=product, **variant_data)
+            total_amount = 0
             
-        return product
+            for item_data in items_data:
+                variant = item_data['variant']
+                quantity = item_data['quantity']
+                
+                if variant.stock_quantity < quantity:
+                    raise serializers.ValidationError(f"Estoque insuficiente para a variante {variant.sku}. Disponível: {variant.stock_quantity}, Pedido: {quantity}.")
+                
+                # Cria o item do pedido, usando o preço atual da variante
+                OrderItem.objects.create(
+                    order=order, 
+                    variant=variant, 
+                    quantity=quantity,
+                    price=variant.price # Captura o preço no momento da venda
+                )
+                
+                # Diminui o estoque (Venda)
+                variant.stock_quantity -= quantity
+                variant.save()
+                
+                total_amount += variant.price * quantity
+
+            # Aplica desconto do cupom (Lógica simplificada, o frontend deve fazer a validação)
+            discount = 0.00
+            if order.coupon:
+                if order.coupon.type == 'PERCENTAGE':
+                    discount = total_amount * (order.coupon.value / 100)
+                elif order.coupon.type == 'FIXED':
+                    discount = order.coupon.value
+                
+                order.discount_amount = min(discount, total_amount)
+                total_amount -= order.discount_amount
+
+            order.total_amount = total_amount
+            order.save()
+            return order
+
+    def update(self, instance, validated_data):
+        # A atualização do OrderSerializer é mais complexa, mas para o status:
+        if 'status' in validated_data and instance.status != validated_data['status']:
+            old_status = instance.status
+            new_status = validated_data['status']
+            instance.status = new_status
+            instance.save()
+            
+            # Registro da mudança de status
+            OrderStatusUpdate.objects.create(
+                order=instance, 
+                old_status=old_status, 
+                new_status=new_status, 
+                notes=f"Status alterado de {old_status} para {new_status}"
+            )
+
+        # Remove 'items' e 'status_updates' se presentes para evitar erros de atualização
+        validated_data.pop('items', None)
+        validated_data.pop('status_updates', None)
+        
+        return super().update(instance, validated_data)
+
+# ----------------------------------------------------
+#               NOVOS SERIALIZERS PARA PO
+# ----------------------------------------------------
+
+class SupplierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Supplier
+        fields = '__all__'
+        read_only_fields = ('store',)
+
+class PurchaseOrderItemSerializer(serializers.ModelSerializer):
+    variant_name = serializers.CharField(source='variant.__str__', read_only=True)
+    product_name = serializers.CharField(source='variant.product.name', read_only=True)
+    sku = serializers.CharField(source='variant.sku', read_only=True)
+    total_cost = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = PurchaseOrderItem
+        fields = ('id', 'variant', 'ordered_quantity', 'received_quantity', 'unit_cost', 'variant_name', 'product_name', 'sku', 'total_cost')
+        
+class PurchaseOrderSerializer(serializers.ModelSerializer):
+    po_items = PurchaseOrderItemSerializer(many=True)
+    supplier_name = serializers.CharField(source='supplier.name', read_only=True)
+
+    class Meta:
+        model = PurchaseOrder
+        fields = '__all__'
+        read_only_fields = ('store', 'order_date', 'total_cost')
+
+    def create(self, validated_data):
+        po_items_data = validated_data.pop('po_items')
+        
+        with transaction.atomic():
+            # Cria o Pedido de Compra (PO)
+            purchase_order = PurchaseOrder.objects.create(**validated_data)
+            
+            for item_data in po_items_data:
+                # O PurchaseOrderItemSerializer tem 'total_cost' como read_only. 
+                # Se for passado na criação, removemos para evitar erro.
+                item_data.pop('total_cost', None) 
+                
+                PurchaseOrderItem.objects.create(purchase_order=purchase_order, **item_data)
+            
+            # Calcula o custo total após a criação dos itens
+            purchase_order.calculate_total_cost()
+            return purchase_order
+            
+    def update(self, instance, validated_data):
+        po_items_data = validated_data.pop('po_items', [])
+        
+        # Início da transação atômica para evitar problemas de concorrência no estoque
+        with transaction.atomic():
+            
+            # Lógica de atualização de estoque ao mudar status para RECEBIDO
+            if 'status' in validated_data and validated_data['status'] in ['RECEIVED_FULL', 'RECEIVED_PARTIAL']:
+                # Itera sobre os itens do PO para atualizar o estoque
+                for item in instance.po_items.all():
+                    # Para uma implementação segura, a lógica de recebimento de estoque é transferida
+                    # para o método `receive_items` no ViewSet. O serializer apenas atualiza os campos.
+                    pass
+                        
+            # Atualiza campos do PurchaseOrder
+            instance = super().update(instance, validated_data)
+            
+            # Atualiza ou cria/deleta PurchaseOrderItems (para rascunhos, por exemplo)
+            if po_items_data:
+                
+                # IDs de itens existentes
+                existing_item_ids = [item.id for item in instance.po_items.all()]
+                
+                for item_data in po_items_data:
+                    item_id = item_data.get('id')
+                    
+                    if item_id and item_id in existing_item_ids:
+                        # Update de item existente
+                        po_item = PurchaseOrderItem.objects.get(id=item_id, purchase_order=instance)
+                        
+                        # Se a quantidade recebida for alterada (para DRAFT/PENDING, isso é só um registro)
+                        po_item.ordered_quantity = item_data.get('ordered_quantity', po_item.ordered_quantity)
+                        po_item.received_quantity = item_data.get('received_quantity', po_item.received_quantity)
+                        po_item.unit_cost = item_data.get('unit_cost', po_item.unit_cost)
+                            
+                        po_item.save()
+                    elif item_id is None:
+                        # Cria novo item
+                        PurchaseOrderItem.objects.create(purchase_order=instance, **item_data)
+                        
+                # Recalcula o custo total
+                instance.calculate_total_cost()
+                
+            return instance
