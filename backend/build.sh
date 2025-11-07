@@ -9,6 +9,6 @@ pip install -r requirements.txt
 # Collect static files
 python manage.py collectstatic --no-input
 
-# Run database migrations
-# --fake-initial: Skip CreateModel operations if tables already exist
-python manage.py migrate --no-input --fake-initial
+# Run database migrations with smart table detection
+# This script checks if tables exist and handles migrations accordingly
+python migrate_safe.py
