@@ -124,13 +124,15 @@ class ProductSerializer(serializers.ModelSerializer):
         """
         Create product and optionally a default variant if price/stock provided.
         Handles both simple products and products with explicit variants.
+
+        Note: The 'store' field is passed via perform_create in the ViewSet.
         """
         # Extract price/stock/sku if provided (for simple products)
         price = validated_data.pop('price', None)
         stock = validated_data.pop('stock', None)
         sku = validated_data.pop('sku', None)
 
-        # Create the product
+        # Create the product (store is passed from perform_create)
         product = Product.objects.create(**validated_data)
 
         # If price is provided, create a default variant
