@@ -69,7 +69,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 # ---
 class ProductSerializer(serializers.ModelSerializer):
     """ Serializer para o Produto "Pai" (detalhes completos) """
-    store_name = serializers.CharField(source='store.name', read_only=True)
+    store_name = serializers.SerializerMethodField()
     # <--- OK: 'variants' agora usa o ProductVariantSerializer atualizado
     variants = ProductVariantSerializer(many=True, read_only=True)
     total_stock = serializers.IntegerField(read_only=True)
@@ -82,6 +82,10 @@ class ProductSerializer(serializers.ModelSerializer):
 
     # <--- ALTERADO: Adicionado 'variant_attributes'
     variant_attributes = AttributeSerializer(many=True, read_only=True)
+
+    def get_store_name(self, obj):
+        """Retorna o nome da loja ou None se não houver loja"""
+        return obj.store.name if obj.store else None
 
     # <--- ADDED: Accept price/stock for simple products (write-only)
     price = serializers.DecimalField(

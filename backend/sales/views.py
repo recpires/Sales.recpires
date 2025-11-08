@@ -69,7 +69,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     """
     ViewSet para Produtos (o container principal).
     """
-    queryset = Product.objects.all()
+    queryset = Product.objects.select_related('store').prefetch_related('variants', 'categories', 'variant_attributes', 'reviews')
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated] # Ajustado em get_permissions
 
@@ -91,27 +91,34 @@ class ProductViewSet(viewsets.ModelViewSet):
         }
         return Response(data)
 
-    # def get_queryset(self):
-    #     """
-    #     Clientes veem todos os produtos ativos.
-    #     Donos de loja veem todos os seus produtos (ativos ou não).
-    #     """
-    #     user = self.request.user
-    #     print('user:', user)
-    #     if user.is_staff:
-    #         print('TO AQUI 1')
-    #         return Product.objects.all()
-
-    #     # Se o usuário não está autenticado ou é um cliente (não dono de loja)
-    #     if not user.is_authenticated or not hasattr(user, 'store'):
-    #          print('TO AQUI 2')
-    #          return Product.objects.filter(is_active=True)
-    #     print('TO AQUI 3')
-    #     # Dono de loja vê seus próprios produtos
-    #     return Product.objects.filter(store=user.store)
-
     def get_queryset(self):
-        return {'id': 1, 'name': 'Produto Exemplo'}
+        """
+        Clientes veem todos os produtos ativos.
+        Donos de loja veem todos os seus produtos (ativos ou não).
+        """
+        user = self.request.user
+
+        # Base queryset com otimizações para evitar N+1 queries
+        base_qs = Product.objects.select_related('store').prefetch_related(
+            'variants', 'categories', 'variant_attributes', 'reviews'
+        )
+
+        # Admin/Staff vê todos os produtos
+        if user.is_staff or user.is_superuser:
+            return base_qs.all()
+
+        # Se o usuário não está autenticado, vê apenas produtos ativos
+        if not user.is_authenticated:
+            return base_qs.filter(is_active=True)
+
+        # Verifica se o usuário tem uma loja
+        try:
+            store = user.store
+            # Dono de loja vê seus próprios produtos (ativos e inativos)
+            return base_qs.filter(store=store)
+        except Store.DoesNotExist:
+            # Usuário autenticado sem loja (cliente) vê apenas produtos ativos
+            return base_qs.filter(is_active=True)
     
     def perform_create(self, serializer):
         """Associa o produto à loja do usuário logado."""
