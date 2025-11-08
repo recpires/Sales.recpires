@@ -100,15 +100,15 @@ class ProductViewSet(viewsets.ModelViewSet):
         print('user:', user)
         if user.is_staff:
             print('TO AQUI 1')
-            return Product.objects.all().select_related('store').prefetch_related('variants', 'categories')
+            return Product.objects.all().select_related('store')
 
         # Se o usuário não está autenticado ou é um cliente (não dono de loja)
         if not user.is_authenticated or not hasattr(user, 'store'):
              print('TO AQUI 2')
-             return Product.objects.filter(is_active=True).select_related('store').prefetch_related('variants', 'categories')
+             return Product.objects.filter(is_active=True).select_related('store')
         print('TO AQUI 3')
         # Dono de loja vê seus próprios produtos
-        return Product.objects.filter(store=user.store).select_related('store').prefetch_related('variants', 'categories')
+        return Product.objects.filter(store=user.store).select_related('store')
 
     def perform_create(self, serializer):
         """Associa o produto à loja do usuário logado."""
