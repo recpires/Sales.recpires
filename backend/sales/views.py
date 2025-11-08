@@ -69,7 +69,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     """
     ViewSet para Produtos (o container principal).
     """
-    queryset = Product.objects.all().select_related('store').prefetch_related('variants', 'categories')
+    queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated] # Ajustado em get_permissions
 
