@@ -91,25 +91,28 @@ class ProductViewSet(viewsets.ModelViewSet):
         }
         return Response(data)
 
+    # def get_queryset(self):
+    #     """
+    #     Clientes veem todos os produtos ativos.
+    #     Donos de loja veem todos os seus produtos (ativos ou não).
+    #     """
+    #     user = self.request.user
+    #     print('user:', user)
+    #     if user.is_staff:
+    #         print('TO AQUI 1')
+    #         return Product.objects.all()
+
+    #     # Se o usuário não está autenticado ou é um cliente (não dono de loja)
+    #     if not user.is_authenticated or not hasattr(user, 'store'):
+    #          print('TO AQUI 2')
+    #          return Product.objects.filter(is_active=True)
+    #     print('TO AQUI 3')
+    #     # Dono de loja vê seus próprios produtos
+    #     return Product.objects.filter(store=user.store)
+
     def get_queryset(self):
-        """
-        Clientes veem todos os produtos ativos.
-        Donos de loja veem todos os seus produtos (ativos ou não).
-        """
-        user = self.request.user
-        print('user:', user)
-        if user.is_staff:
-            print('TO AQUI 1')
-            return Product.objects.all()
-
-        # Se o usuário não está autenticado ou é um cliente (não dono de loja)
-        if not user.is_authenticated or not hasattr(user, 'store'):
-             print('TO AQUI 2')
-             return Product.objects.filter(is_active=True)
-        print('TO AQUI 3')
-        # Dono de loja vê seus próprios produtos
-        return Product.objects.filter(store=user.store)
-
+        return {'id': 1, 'name': 'Produto Exemplo'}
+    
     def perform_create(self, serializer):
         """Associa o produto à loja do usuário logado."""
         try:
