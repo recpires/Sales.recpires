@@ -165,7 +165,7 @@ class ProductLiteSerializer(serializers.ModelSerializer):
         model = Product 
         fields = ['id', 'name', 'image', 'price'] 
 
-    def get_image_url(self, obj):
+    def get_image(self, obj):
         """ Pega a URL da imagem principal do produto """
         request = self.context.get('request')
         if obj.image and request:
@@ -173,6 +173,15 @@ class ProductLiteSerializer(serializers.ModelSerializer):
         elif obj.image:
             return obj.image.url
         return None
+
+    def get_price(self, obj):
+        """Retorna o preço do produto (da primeira variante ou do preço principal)"""
+        # Se produto tem variantes, pega o menor preço
+        if obj.variants.exists():
+            variant = obj.variants.filter(is_active=True).order_by('price').first()
+            return variant.price if variant else None
+        # Se não tem variantes, retorna o preço principal
+        return obj.price
         
     def validate(self, data):
         """
