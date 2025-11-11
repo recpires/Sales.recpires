@@ -100,3 +100,11 @@
     "active_label": "Product Active"
   }
 }
+
+"common": {
+    "outOfStock": "Out of Stock",
+    "edit": "Edit",
+    "delete": "Delete",
+    "viewDetails": "View Details",
+    "addToCart": "Add to Cart"
+  }
