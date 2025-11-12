@@ -9,5 +9,6 @@ pip install -r requirements.txt
 # Collect static files
 python manage.py collectstatic --no-input
 
-# Run database migrations
-python manage.py migrate --no-input
+# Run database migrations with smart table detection
+# This script checks if tables exist and handles migrations accordingly
+python migrate_safe.py

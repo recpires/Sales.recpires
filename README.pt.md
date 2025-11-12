@@ -16,7 +16,6 @@ Aplicação full-stack de gestão de vendas construída com Django REST Framewor
 - [Licença](#licença)
 
 ## ✨ Recursos
-
 - **Autenticação de Usuário**
   - Autenticação baseada em JWT com renovação de token
   - Registro e login de usuários

@@ -1,433 +1,375 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
-from decimal import Decimal
-from django.db.models import Q, Avg, F
+from django.utils.text import slugify
 from django.utils import timezone
-import uuid
+from decimal import Decimal
 
-# --- Model de Loja (sem alterações) ---
-class Store(models.Model):
-    owner = models.OneToOneField(User, on_delete=models.CASCADE, related_name='store', verbose_name="Dono")
-    name = models.CharField(max_length=200, verbose_name="Nome da Loja")
-    description = models.TextField(blank=True, verbose_name="Descrição")
-    phone = models.CharField(max_length=20, blank=True, verbose_name="Telefone")
-    email = models.EmailField(blank=True, verbose_name="E-mail")
-    address = models.TextField(blank=True, verbose_name="Endereço")
-    is_active = models.BooleanField(default=True, verbose_name="Ativa?")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
 
-    class Meta:
-        ordering = ['-created_at']
-        verbose_name = "Loja"
-        verbose_name_plural = "Lojas"
-
-    def __str__(self):
-        return f"{self.name} ({self.owner.username})"
-
-# --- Model de Categoria (sem alterações) ---
-class Category(models.Model):
-    name = models.CharField(max_length=100, unique=True, verbose_name="Nome")
-    slug = models.SlugField(max_length=100, unique=True)
-    description = models.TextField(blank=True, verbose_name="Descrição")
-    image = models.ImageField(upload_to='categories/', blank=True, null=True, verbose_name="Imagem")
-    parent = models.ForeignKey(
-        'self', on_delete=models.CASCADE, related_name='children',
-        null=True, blank=True, verbose_name="Categoria Pai"
-    )
-    is_active = models.BooleanField(default=True, verbose_name="Ativa?")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
-
-    class Meta:
-        ordering = ['name']
-        verbose_name = "Categoria"
-        verbose_name_plural = "Categorias"
-
-    def __str__(self):
-        return self.name
-
-# --- NOVOS MODELS PARA VARIAÇÕES FLEXÍVEIS ---
+# --- ATTRIBUTE MODELS (for flexible product attributes) ---
 
 class Attribute(models.Model):
-    """
-    Define o "tipo" de variação.
-    Exemplos: 'Cor', 'Tamanho', 'Modelo', 'Marca', 'Voltagem'.
-    """
-    name = models.CharField(
-        max_length=100, unique=True, verbose_name="Nome do Atributo"
-    )
-    
+    """Dynamic attributes for products (e.g., Color, Size, Material)"""
+    name = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
         ordering = ['name']
-        verbose_name = "Atributo"
-        verbose_name_plural = "Atributos"
 
     def __str__(self):
         return self.name
 
+
 class AttributeValue(models.Model):
-    """
-    Define o "valor" específico de um atributo.
-    Exemplos: 'Vermelho' (para Cor), 'M' (para Tamanho), 'Nike' (para Marca).
-    """
-    attribute = models.ForeignKey(
-        Attribute, on_delete=models.CASCADE, related_name='values', 
-        verbose_name="Atributo"
-    )
-    value = models.CharField(max_length=100, verbose_name="Valor")
+    """Values for attributes (e.g., Red, Blue for Color attribute)"""
+    attribute = models.ForeignKey(Attribute, on_delete=models.CASCADE, related_name='values')
+    value = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['attribute__name', 'value']
-        # Ex: Não pode ter dois "Vermelho" para "Cor"
-        unique_together = ['attribute', 'value'] 
-        verbose_name = "Valor de Atributo"
-        verbose_name_plural = "Valores de Atributos"
+        unique_together = ('attribute', 'value')
 
     def __str__(self):
-        # Retorna "Cor: Vermelho" ou "Tamanho: M"
         return f"{self.attribute.name}: {self.value}"
 
 
-# --- Model de Produto (Principal) ALTERADO ---
-class Product(models.Model):
-    # --- CHOICES REMOVIDOS DAQUI ---
-    # (Opcional: UNITE_CHOICES pode ficar se usado em outro lugar)
-    UNITE_CHOICES = [
-        ('pcs', 'Peças'), ('box', 'Caixa'), ('set', 'Conjunto'), ('pack', 'Pacote'),    
-    ]
-    
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', verbose_name="Loja")
-    name = models.CharField(max_length=200, verbose_name="Nome do Produto")
-    description = models.TextField(blank=True, verbose_name="Descrição")
-    categories = models.ManyToManyField(Category, related_name='products', blank=True, verbose_name="Categorias")
-    is_active = models.BooleanField(default=True, verbose_name="Ativo?")
-    image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name="Imagem Principal")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+# --- CATEGORY MODEL ---
 
-    # --- CAMPO ADICIONADO (Opcional, mas recomendado) ---
-    variant_attributes = models.ManyToManyField(
-        Attribute,
-        related_name='products',
-        blank=True,
-        verbose_name="Atributos de VariaÇÃO",
-        help_text="Quais atributos este produto usa para variações (ex: Cor, Tamanho)."
-    )
+class Category(models.Model):
+    """Product categories"""
+    name = models.CharField(max_length=200, unique=True)
+    slug = models.SlugField(max_length=200, unique=True, blank=True)
+    description = models.TextField(blank=True)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, related_name='children', null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
-        verbose_name = "Produto"
-        verbose_name_plural = "Produtos"
+        ordering = ['name']
+        verbose_name_plural = 'Categories'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name
 
-    # --- Método 'adicionar_variacao' REMOVIDO ---
-    # A lógica de criação agora é mais complexa e depende
-    # da associação de AttributeValues
-    
-    # --- Propriedades mantidas (continuam funcionando) ---
+
+class Store(models.Model):
+    """Model for seller stores - each admin user has their own store"""
+    owner = models.OneToOneField(User, on_delete=models.CASCADE, related_name='store')
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    phone = models.CharField(max_length=20, blank=True)
+    email = models.EmailField(blank=True)
+    address = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} - {self.owner.username}"
+
+
+class Product(models.Model):
+    """Model for products/items available for sale"""
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='products', null=True, blank=True)
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+
+    # Price and stock can be null if product has variants
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        null=True,
+        blank=True
+    )
+    stock = models.IntegerField(default=0, validators=[MinValueValidator(0)], null=True, blank=True)
+
+    # Legacy category field - will be replaced by M2M categories
+    category = models.CharField(max_length=100, blank=True)
+
+    # Many-to-Many relationships
+    categories = models.ManyToManyField(Category, related_name='products', blank=True)
+    variant_attributes = models.ManyToManyField(Attribute, related_name='products', blank=True,
+                                                help_text="Attributes used for product variants (e.g., Color, Size)")
+
+    sku = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
     @property
     def total_stock(self):
-        return sum(v.stock for v in self.variants.filter(is_active=True))
+        """Calculate total stock from all variants"""
+        if self.variants.exists():
+            return sum(v.stock for v in self.variants.all())
+        return self.stock or 0
 
     @property
     def average_rating(self):
-        avg = self.reviews.filter(is_approved=True).aggregate(Avg('rating'))['rating__avg']
-        return round(avg, 1) if avg else 0
+        """Calculate average rating from approved reviews"""
+        approved_reviews = self.reviews.filter(is_approved=True)
+        if approved_reviews.exists():
+            total = sum(r.rating for r in approved_reviews)
+            return round(total / approved_reviews.count(), 1)
+        return None
 
     @property
     def review_count(self):
+        """Count of approved reviews"""
         return self.reviews.filter(is_approved=True).count()
 
 
-# --- Model de Variação (Principal) ALTERADO ---
 class ProductVariant(models.Model):
-    product = models.ForeignKey(
-        Product, on_delete=models.CASCADE, related_name='variants',
-        verbose_name="Produto Principal"
-    )
-    sku = models.CharField(
-        max_length=100, unique=True, verbose_name="SKU",
-        help_text="Identificador único para esta variação específica."
-    )
+    """Variants for a product (different size/color/price/sku/stock)"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='variants')
 
-    # --- CAMPOS FIXOS REMOVIDOS ---
-    # color, size, model não existem mais aqui.
+    # Variant name for display (e.g., "Size M, Color Blue")
+    name = models.CharField(max_length=255, blank=True, help_text="Ex: Tamanho M, Cor Azul")
 
-    # --- CAMPO FLEXÍVEL ADICIONADO ---
-    values = models.ManyToManyField(
-        AttributeValue,
-        related_name='variants',
-        verbose_name="Valores dos Atributos",
-        help_text="A combinação de valores que define esta variação (ex: Vermelho + M + Nike)."
-    )
-    
-    # --- Propriedades da Variação (Mantidas/Solicitadas) ---
-    stock = models.IntegerField(
-        default=0, validators=[MinValueValidator(0)], verbose_name="Estoque",
-        help_text="Quantidade disponível desta variação específica."
-    )
-    price = models.DecimalField(
-        max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))],
-        verbose_name="Preço", help_text="Preço desta variação específica."
-    )
-    
-    # --- Campos restantes ---
-    image = models.ImageField(
-        upload_to='products/variants/', blank=True, null=True, verbose_name="Imagem da Variação",
-        help_text="Imagem específica para esta variação (opcional, usará a do produto principal se vazia)."
-    )
-    is_active = models.BooleanField(default=True, verbose_name="Ativa?")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+    # Many-to-Many relationship to AttributeValue for flexible variant attributes
+    values = models.ManyToManyField(AttributeValue, related_name='variants', blank=True,
+                                    help_text="Attribute values for this variant (e.g., Size: M, Color: Blue)")
+
+    sku = models.CharField(max_length=100, unique=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))])
+    stock = models.IntegerField(default=0, validators=[MinValueValidator(0)])
+
+    image = models.ImageField(upload_to='products/variants/', blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['product__name', 'price'] # Ordenação padrão alterada
-        verbose_name = "Variação de Produto"
-        verbose_name_plural = "Variações de Produtos"
-        
-        # 'UniqueConstraint' anterior removido.
-        # Validar combinações únicas de 'values' M2M é complexo
-        # e geralmente tratado na lógica de forms/views.
-        
-        constraints = [
-            models.CheckConstraint(
-                check=models.Q(stock__gte=0),
-                name='check_stock_non_negative'
-            )
-        ]
+        ordering = ['-created_at']
 
     def __str__(self):
-        # Cria uma string com os valores: "Vermelho / M / Nike"
-        values_str = " / ".join(
-            str(v.value) for v in self.values.all().order_by('attribute__name')
-        )
-        if not values_str:
-            values_str = "Padrão" # Caso seja um produto sem variação
-            
-        return f"{self.product.name} - ({values_str}) | R$ {self.price} (Est: {self.stock})"
+        variant_name = self.name or " / ".join(str(v.value) for v in self.values.all())
+        return f"{self.product.name} - {variant_name} ({self.sku})"
 
-    @property
-    def option_description(self):
-        # Retorna uma descrição mais completa: "Cor: Vermelho / Tamanho: M"
-        return " / ".join(
-            str(v) for v in self.values.all().order_by('attribute__name')
-        )
-
-    def __repr__(self):
-        return f"<Variant: {self.product.name} - {self.option_description} ({self.sku})>"
-
-
-# --- Models de Pedido, Review, Coupon, Wishlist (sem alterações) ---
 
 class Order(models.Model):
+    """Order model with payment tracking and status updates"""
     STATUS_CHOICES = [
-        ('pending', 'Pendente'), ('processing', 'Processando'), ('awaiting_delivery', 'Aguardando entrega'),
-        ('out_for_delivery', 'Saiu para entrega'), ('delivered', 'Entregue'), ('cancelled', 'Cancelado'),
-        ('shipped', 'Enviado'),
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('out_for_delivery', 'Out for Delivery'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
     ]
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders', null=True, blank=True, verbose_name="Loja")
-    customer_name = models.CharField(max_length=200, verbose_name="Nome do Cliente")
-    customer_email = models.EmailField(verbose_name="E-mail do Cliente")
-    customer_phone = models.CharField(max_length=20, blank=True, verbose_name="Telefone do Cliente")
-    shipping_address = models.TextField(verbose_name="Endereço de Entrega")
-    coupon = models.ForeignKey('Coupon', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders', verbose_name="Cupom")
-    discount_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Valor do Desconto")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name="Status")
-    payment_method = models.CharField(max_length=20, choices=[('online', 'Online'), ('cod', 'Pagamento na entrega')], default='online', verbose_name="Método Pagto")
-    payment_status = models.CharField(max_length=20, choices=[('pending', 'Pendente'), ('paid', 'Pago'), ('failed', 'Falhou')], default='pending', verbose_name="Status Pagto")
-    paid_at = models.DateTimeField(null=True, blank=True, verbose_name="Pago em")
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name="Valor Total")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+
+    PAYMENT_METHOD_CHOICES = [
+        ('cod', 'Cash on Delivery'),
+        ('online', 'Online Payment'),
+        ('card', 'Card Payment'),
+    ]
+
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
+
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
+    customer_name = models.CharField(max_length=200)
+    customer_email = models.EmailField()
+    customer_phone = models.CharField(max_length=20, blank=True)
+    shipping_address = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Payment fields
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cod')
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "Pedido"
-        verbose_name_plural = "Pedidos"
 
     def __str__(self):
-        return f"Pedido #{self.id} - {self.customer_name}"
+        return f"Order #{self.id} - {self.customer_name}"
 
     def calculate_total(self):
+        """Calculate total from order items"""
         total = sum(item.get_subtotal() for item in self.items.all())
-        # Aplicar desconto do cupom se houver
-        if self.coupon:
-            discount = self.coupon.calculate_discount(total)
-            self.discount_amount = discount
-            total -= discount
-        else:
-            self.discount_amount = 0
-        self.total_amount = max(total, Decimal(0)) # Garante que não fique negativo
-        self.save(update_fields=['total_amount', 'discount_amount', 'updated_at'])
-        return self.total_amount
+        self.total_amount = total
+        self.save()
+        return total
 
-    def set_status(self, new_status: str, note: str | None = None, automatic: bool = True):
-        if new_status not in dict(self.STATUS_CHOICES):
-            raise ValueError("Status inválido.")
+    def set_status(self, new_status, note='', automatic=True):
+        """Update order status and create status update record"""
+        old_status = self.status
         self.status = new_status
-        self.save(update_fields=['status', 'updated_at'])
+        self.save()
+
+        # Create status update record
         OrderStatusUpdate.objects.create(
-            order=self, status=new_status, note=note or '', is_automatic=automatic,
+            order=self,
+            status=new_status,
+            note=note,
+            is_automatic=automatic
         )
-        # Aqui você pode adicionar lógica para enviar notificações, etc.
-        return self
+
+        return old_status
 
     def mark_cod_paid(self):
-        if self.payment_method != 'cod':
-            raise ValueError("Este pedido não é de pagamento na entrega.")
-        self.payment_status = 'paid'
-        self.paid_at = timezone.now()
-        self.save(update_fields=['payment_status', 'paid_at', 'updated_at'])
-        return self
+        """Mark cash on delivery order as paid"""
+        if self.payment_method == 'cod' and self.payment_status == 'pending':
+            self.payment_status = 'paid'
+            self.paid_at = timezone.now()
+            self.save()
+            return True
+        return False
 
-
-class OrderStatusUpdate(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='status_updates', verbose_name="Pedido")
-    status = models.CharField(max_length=20, verbose_name="Novo Status")
-    note = models.TextField(blank=True, default='', verbose_name="Nota")
-    is_automatic = models.BooleanField(default=True, verbose_name="Automático?")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
-
-    class Meta:
-        ordering = ['-created_at']
-        verbose_name = "Atualização de Status do Pedido"
-        verbose_name_plural = "Atualizações de Status dos Pedidos"
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items', verbose_name="Pedido")
+    """Items in an order"""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='order_items')
     variant = models.ForeignKey(
-        ProductVariant, on_delete=models.PROTECT, related_name='order_items', verbose_name="Variação"
+        ProductVariant, on_delete=models.PROTECT, related_name='order_items', verbose_name="Variação",
+        null=True, blank=True
     )
-    quantity = models.IntegerField(validators=[MinValueValidator(1)], verbose_name="Quantidade")
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Preço Unitário (Snapshot)")
-
-    @property
-    def product(self):
-        return self.variant.product
-
-    class Meta:
-        verbose_name = "Item do Pedido"
-        verbose_name_plural = "Itens dos Pedidos"
+    quantity = models.IntegerField(validators=[MinValueValidator(1)])
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        # O __str__ de ProductVariant foi atualizado, então isso
-        # mostrará a descrição correta da variação.
-        return f"{self.quantity}x {self.variant.product.name} ({self.variant.sku}) no Pedido #{self.order.id}"
+        return f"{self.quantity}x {self.product.name} in Order #{self.order.id}"
 
     def get_subtotal(self):
         return self.quantity * self.unit_price
 
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        if is_new:
-            self.unit_price = self.variant.price # Snapshot do preço
-        
-        previous_qty = 0
-        if not is_new:
-            try:
-                previous_qty = OrderItem.objects.get(pk=self.pk).quantity
-            except OrderItem.DoesNotExist: pass
-        delta = self.quantity - previous_qty
-
-        if delta > 0:
-            variant_stock = ProductVariant.objects.select_for_update().get(pk=self.variant.pk).stock
-            if delta > variant_stock:
-                raise ValueError(f"Estoque insuficiente ({variant_stock}) para {self.variant.sku}.")
-
+        if not self.unit_price:
+            if getattr(self, 'variant') and self.variant:
+                self.unit_price = self.variant.price
+            elif self.product.price:
+                self.unit_price = self.product.price
+            else:
+                self.unit_price = 0
         super().save(*args, **kwargs)
 
-        if delta != 0:
-            ProductVariant.objects.filter(pk=self.variant.pk).update(stock=F('stock') - delta)
 
-    def delete(self, *args, **kwargs):
-        qty = self.quantity
-        variant_pk = self.variant.pk
-        super().delete(*args, **kwargs)
-        # Devolve estoque atomicamente
-        ProductVariant.objects.filter(pk=variant_pk).update(stock=F('stock') + qty)
+class OrderStatusUpdate(models.Model):
+    """Track order status changes"""
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='status_updates')
+    status = models.CharField(max_length=20, choices=Order.STATUS_CHOICES)
+    note = models.TextField(blank=True)
+    is_automatic = models.BooleanField(default=True, help_text="Was this status change automatic?")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Order #{self.order.id} - {self.status} at {self.created_at}"
 
 
 class Review(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews', verbose_name="Produto")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews', verbose_name="Usuário")
-    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)], verbose_name="Nota (1-5)")
-    title = models.CharField(max_length=200, blank=True, verbose_name="Título")
-    comment = models.TextField(blank=True, verbose_name="Comentário")
-    is_verified_purchase = models.BooleanField(default=False, verbose_name="Compra Verificada?")
-    is_approved = models.BooleanField(default=True, verbose_name="Aprovado?")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+    """Product reviews"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    comment = models.TextField(blank=True)
+    is_approved = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = ['product', 'user']
-        verbose_name = "Avaliação"
-        verbose_name_plural = "Avaliações"
+        unique_together = ('product', 'user')  # One review per user per product
 
     def __str__(self):
-        return f"{self.user.username} - {self.product.name} ({self.rating}★)"
+        return f"{self.user.username} - {self.product.name} ({self.rating}/5)"
 
 
 class Coupon(models.Model):
-    DISCOUNT_TYPE_CHOICES = [('percentage', 'Percentual'), ('fixed', 'Valor Fixo')]
-    code = models.CharField(max_length=50, unique=True, verbose_name="Código")
-    description = models.TextField(blank=True, verbose_name="Descrição")
-    discount_type = models.CharField(max_length=20, choices=DISCOUNT_TYPE_CHOICES, default='percentage', verbose_name="Tipo Desconto")
-    discount_value = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal('0.01'))], verbose_name="Valor Desconto")
-    min_purchase_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0'))], verbose_name="Compra Mínima")
-    max_discount_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(Decimal('0.01'))], verbose_name="Desconto Máximo")
-    usage_limit = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(1)], verbose_name="Limite de Usos")
-    usage_count = models.IntegerField(default=0, validators=[MinValueValidator(0)], verbose_name="Vezes Usado")
-    valid_from = models.DateTimeField(verbose_name="Válido De")
-    valid_until = models.DateTimeField(verbose_name="Válido Até")
-    is_active = models.BooleanField(default=True, verbose_name="Ativo?")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+    """Discount coupons"""
+    DISCOUNT_TYPE_CHOICES = [
+        ('percentage', 'Percentage'),
+        ('fixed', 'Fixed Amount'),
+    ]
+
+    code = models.CharField(max_length=50, unique=True)
+    discount_type = models.CharField(max_length=20, choices=DISCOUNT_TYPE_CHOICES, default='percentage')
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2,
+                                        validators=[MinValueValidator(Decimal('0.01'))])
+    min_purchase_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    max_discount_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,
+                                             help_text="Maximum discount for percentage coupons")
+    usage_limit = models.IntegerField(null=True, blank=True, help_text="Total times this coupon can be used")
+    usage_count = models.IntegerField(default=0)
+    valid_from = models.DateTimeField(default=timezone.now)
+    valid_until = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "Cupom"
-        verbose_name_plural = "Cupons"
 
     def __str__(self):
-        return self.code
+        return f"{self.code} ({self.discount_value})"
 
     def is_valid(self):
+        """Check if coupon is valid"""
         now = timezone.now()
-        if not self.is_active: return False, "Cupom inativo"
-        if now < self.valid_from: return False, "Cupom ainda não válido"
-        if now > self.valid_until: return False, "Cupom expirado"
-        if self.usage_limit and self.usage_count >= self.usage_limit: return False, "Limite de uso atingido"
-        return True, "Cupom válido"
+        if not self.is_active:
+            return False
+        if self.valid_from > now:
+            return False
+        if self.valid_until and self.valid_until < now:
+            return False
+        if self.usage_limit and self.usage_count >= self.usage_limit:
+            return False
+        return True
 
-    def calculate_discount(self, total_amount):
+    def calculate_discount(self, amount):
+        """Calculate discount for given amount"""
+        if not self.is_valid():
+            return 0
+
+        if amount < self.min_purchase_amount:
+            return 0
+
         if self.discount_type == 'percentage':
-            discount = total_amount * (self.discount_value / 100)
+            discount = amount * (self.discount_value / 100)
             if self.max_discount_amount:
                 discount = min(discount, self.max_discount_amount)
-        else: discount = self.discount_value
-        return min(discount, total_amount) # Não pode descontar mais que o total
-
-    def increment_usage(self):
-        """ Incrementa o contador de uso atomicamente """
-        self.usage_count = F('usage_count') + 1
-        self.save(update_fields=['usage_count'])
+            return discount
+        else:  # fixed
+            return min(self.discount_value, amount)
 
 
 class Wishlist(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wishlists', verbose_name="Usuário")
-    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='wishlists', verbose_name="Produto")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Adicionado em")
+    """User wishlist for products"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wishlist')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='wishlisted_by')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-created_at']
-        unique_together = ['user', 'product']
-        verbose_name = "Item da Lista de Desejos"
-        verbose_name_plural = "Lista de Desejos"
+        unique_together = ('user', 'product')  # One product per user in wishlist
 
     def __str__(self):
         return f"{self.user.username} - {self.product.name}"

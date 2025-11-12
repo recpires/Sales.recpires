@@ -1,33 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import type { FC } from "react";
+import { Form, Input, InputNumber, Button, Upload, Switch } from "antd";
 import {
-  Form,
-  Input,
-  InputNumber,
-  Button,
-  Upload,
-  Switch,
-  message,
-} from "antd";
-  <Upload ...>
-    {imagePreview ? (
-      <img src={imagePreview} ... />
-    ) : (
-      // ... ícone de upload
-    )}
-  </Upload>
-</Form.Item>
-
   UploadOutlined,
   PlusOutlined,
   MinusCircleOutlined,
 } from "@ant-design/icons";
-
-interface ProductFormProps {
-  onSubmit: (data: ProductFormData, image?: File) => Promise<void>;
-  initialData?: Partial<ProductFormData>;
-  submitText?: string;
-  loading?: boolean;
-}
+import type { UploadFile } from "antd/es/upload/interface"; // Import type for clarity
 
 interface ProductFormData {
   name: string;
@@ -37,6 +16,7 @@ interface ProductFormData {
   price?: number;
   stock?: number;
   category: string;
+  image?: string | null;
   variants?: Array<{
     sku: string;
     attributes: Array<{
@@ -48,7 +28,14 @@ interface ProductFormData {
   }>;
 }
 
-const ProductForm: React.FC<ProductFormProps> = ({
+interface ProductFormProps {
+  onSubmit: (data: any, image?: File) => void;
+  loading: boolean;
+  submitText: string;
+  initialData?: ProductFormData; // <--- ADICIONADO
+}
+
+const ProductForm: FC<ProductFormProps> = ({
   onSubmit,
   initialData,
   submitText = "Salvar",
@@ -57,23 +44,37 @@ const ProductForm: React.FC<ProductFormProps> = ({
   const [form] = Form.useForm();
   const [imageFile, setImageFile] = useState<File | undefined>(undefined);
   const [imagePreview, setImagePreview] = useState<string | undefined>(
-    initialData?.image
+    initialData?.image ?? undefined
   );
   const [useVariants, setUseVariants] = useState(
     Array.isArray(initialData?.variants) && initialData.variants.length > 0
   );
 
-  const handleImageChange = (info: any) => {
-    if (info.file.originFileObj) {
-      const file = info.file.originFileObj;
-      setImageFile(file);
+  // Efeito para limpar a URL de preview da memória
+  useEffect(() => {
+    // Esta função de limpeza é chamada quando o componente é desmontado
+    return () => {
+      // Se a imagePreview for uma URL 'blob:' (criada por createObjectURL),
+      // nós a revogamos para liberar memória.
+      if (imagePreview && imagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]); // Executa sempre que imagePreview mudar
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  // <--- FUNÇÃO CRIADA
+  /**
+   * Chamado ANTES do upload.
+   * Captura o arquivo, cria o preview e impede o upload automático.
+   */
+  const handleImageUpload = (file: File) => {
+    setImageFile(file); // Salva o ARQUIVO para o submit
+
+    // Cria e salva a URL de PREVIEW
+    const newPreviewUrl = URL.createObjectURL(file);
+    setImagePreview(newPreviewUrl);
+
+    return false; // Impede que o Ant Design faça o upload automaticamente
   };
 
   const handleSubmit = async (values: ProductFormData) => {
@@ -83,10 +84,13 @@ const ProductForm: React.FC<ProductFormProps> = ({
         ? { ...values, price: undefined, stock: undefined }
         : { ...values, variants: undefined };
 
+      // 'imageFile' agora está correto, vindo de 'handleImageUpload'
       await onSubmit(submitData, imageFile);
+
       form.resetFields();
       setImageFile(undefined);
-      setImagePreview(undefined);
+      // Reseta o preview para a imagem inicial (se houver) ou nada
+      setImagePreview(initialData?.image ?? undefined);
     } catch (error) {
       console.error("Error submitting form:", error);
     }
@@ -102,6 +106,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   return (
+    // <--- FORMULÁRIO DE UPLOAD REMOVIDO DO TOPO
     <Form
       form={form}
       layout="vertical"
@@ -148,6 +153,30 @@ const ProductForm: React.FC<ProductFormProps> = ({
 
       <Form.Item label="Categoria" name="category">
         <Input placeholder="Ex: Roupas, Eletrônicos, etc." size="large" />
+      </Form.Item>
+
+      {/* Image Upload - MOVIMENTEI PARA CÁ */}
+      <Form.Item label="Imagem do Produto">
+        <Upload
+          beforeUpload={handleImageUpload} // <--- LÓGICA CORRIGIDA
+          maxCount={1}
+          listType="picture-card"
+          showUploadList={false} // Não mostra a lista de arquivos, só o preview
+          accept="image/png, image/jpeg, image/webp"
+        >
+          {imagePreview ? ( // <--- USA O 'imagePreview'
+            <img
+              src={imagePreview}
+              alt="Preview"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center">
+              <UploadOutlined className="text-3xl text-gray-400" />
+              <div className="mt-2 text-gray-600">Enviar Imagem</div>
+            </div>
+          )}
+        </Upload>
       </Form.Item>
 
       {/* Toggle Variants */}
@@ -232,49 +261,14 @@ const ProductForm: React.FC<ProductFormProps> = ({
                     </Button>
                   </div>
 
-                  {/* Dynamic Attributes for Variants */}
-                  <Form.List name={[field.name, "attributes"]}>
-                    {(attrFields, { add: addAttr, remove: removeAttr }) => (
-                      <>
-                        {attrFields.map((attrField) => (
-                          <div
-                            key={attrField.key}
-                            className="flex items-center gap-2 mb-2"
-                          >
-                            <Form.Item
-                              {...attrField}
-                              name={[attrField.name, "attribute"]}
-                              rules={[{ required: true, message: "Atributo" }]}
-                              className="mb-0 flex-1"
-                            >
-                              <Input placeholder="Atributo (Ex: Cor)" />
-                            </Form.Item>
-                            <Form.Item
-                              {...attrField}
-                              name={[attrField.name, "value"]}
-                              rules={[{ required: true, message: "Valor" }]}
-                              className="mb-0 flex-1"
-                            >
-                              <Input placeholder="Valor (Ex: Azul)" />
-                            </Form.Item>
-                            <MinusCircleOutlined
-                              onClick={() => removeAttr(attrField.name)}
-                            />
-                          </div>
-                        ))}
-                        <Form.Item className="mb-2">
-                          <Button
-                            type="dashed"
-                            onClick={() => addAttr()}
-                            block
-                            icon={<PlusOutlined />}
-                          >
-                            Adicionar Atributo
-                          </Button>
-                        </Form.Item>
-                      </>
-                    )}
-                  </Form.List>
+                  <Form.Item
+                    {...field}
+                    label="Nome da Variante"
+                    name={[field.name, "name"]}
+                    rules={[{ required: true, message: "Nome obrigatório" }]}
+                  >
+                    <Input placeholder="Ex: Tamanho M, Cor Azul" />
+                  </Form.Item>
 
                   <Form.Item
                     {...field}
@@ -339,29 +333,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
         </Form.List>
       )}
 
-      {/* Image Upload */}
-      <Form.Item label="Imagem do Produto">
-        <Upload
-          beforeUpload={() => false}
-          onChange={handleImageChange}
-          maxCount={1}
-          listType="picture-card"
-          showUploadList={false}
-        >
-          {imagePreview ? (
-            <img
-              src={imagePreview}
-              alt="Preview"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center">
-              <UploadOutlined className="text-3xl text-gray-400" />
-              <div className="mt-2 text-gray-600">Enviar Imagem</div>
-            </div>
-          )}
-        </Upload>
-      </Form.Item>
+      {/* <--- CAMPO DE UPLOAD DUPLICADO REMOVIDO DAQUI */}
 
       <Form.Item>
         <Button

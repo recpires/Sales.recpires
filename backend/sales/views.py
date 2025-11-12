@@ -1,3 +1,4 @@
+
 from decimal import Decimal
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -68,7 +69,7 @@ class ProductViewSet(viewsets.ModelViewSet):
     """
     ViewSet para Produtos (o container principal).
     """
-    queryset = Product.objects.all().select_related('store').prefetch_related('variants', 'categories')
+    queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated] # Ajustado em get_permissions
 
@@ -96,23 +97,33 @@ class ProductViewSet(viewsets.ModelViewSet):
         Donos de loja veem todos os seus produtos (ativos ou não).
         """
         user = self.request.user
-        
+        print('user:', user)
         if user.is_staff:
-            return Product.objects.all().select_related('store').prefetch_related('variants', 'categories')
+            print('TO AQUI 1')
+            return Product.objects.all()
 
         # Se o usuário não está autenticado ou é um cliente (não dono de loja)
         if not user.is_authenticated or not hasattr(user, 'store'):
-             return Product.objects.filter(is_active=True).select_related('store').prefetch_related('variants', 'categories')
-        
+             print('TO AQUI 2')
+             return Product.objects.filter(is_active=True)
+        print('TO AQUI 3')
         # Dono de loja vê seus próprios produtos
-        return Product.objects.filter(store=user.store).select_related('store').prefetch_related('variants', 'categories')
-
+        return Product.objects.filter(store=user.store)
+    
     def perform_create(self, serializer):
         """Associa o produto à loja do usuário logado."""
+        user = self.request.user
+        print(f"DEBUG: User creating product: {user.username}")
+        print(f"DEBUG: User has 'store' attribute: {hasattr(user, 'store')}")
+
         try:
-            store = self.request.user.store
+            store = Store.objects.get(owner=user)
+            print(f"DEBUG: Store found: {store.name} (ID: {store.id})")
         except Store.DoesNotExist:
+            print(f"DEBUG: No store found for user {user.username}")
             raise ValidationError({"detail": "Você precisa criar uma loja antes de adicionar produtos."})
+
+        print(f"DEBUG: Saving product with store: {store}")
         serializer.save(store=store)
 
 
