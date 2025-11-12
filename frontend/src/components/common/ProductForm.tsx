@@ -8,7 +8,6 @@ import {
   Switch,
   message,
 } from "antd";
-import {<Form.Item label="Imagem do Produto">
   <Upload ...>
     {imagePreview ? (
       <img src={imagePreview} ... />

@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Store, Product, ProductVariant, Order, OrderItem, OrderStatusUpdate,
     Category, Review, Coupon, Wishlist,
-    Attribute, AttributeValue  # <--- ALTERADO: Importa os novos models
+    Attribute, AttributeValue
 )
 
 # --- NOVOS REGISTROS ---
@@ -39,14 +39,13 @@ class StoreAdmin(admin.ModelAdmin):
 class ProductVariantInline(admin.TabularInline):
     model = ProductVariant
     extra = 0
-    # <--- ALTERADO: Removido 'color', 'size', 'model'
     fields = ('sku', 'stock', 'price', 'is_active') 
-    # <--- ALTERADO: Adicionado 'filter_horizontal' para o campo M2M 'values'
     filter_horizontal = ('values',)
-    autocomplete_fields = ('values',) # Usa o 'search_fields' do AttributeValueAdmin
+    autocomplete_fields = ('values',)
     
-
-
+# 
+#  AQUI ESTÁ A CLASSE CORRIGIDA 
+#
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = ('name', 'store', 'total_stock', 'is_active', 'created_at')
@@ -55,21 +54,36 @@ class ProductAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at', 'updated_at', 'total_stock')
     inlines = [ProductVariantInline]
     list_select_related = ('store',)
-    # <--- ALTERADO: Adicionado 'variant_attributes'
     filter_horizontal = ('categories', 'variant_attributes',)
+
+    # --- CORREÇÃO ADICIONADA ---
+    # Este método resolve o erro 'IntegrityError: NOT NULL constraint failed: sales_product.store_id'
+    # ao criar um novo produto.
+    def save_model(self, request, obj, form, change):
+        """
+        Sobrescreve o save_model para associar automaticamente
+        o produto à loja do usuário logado (ao criar um novo produto).
+        """
+        if not obj.pk:  # Verifica se é um novo objeto (criação)
+            try:
+                # Associa a loja do usuário ao produto
+                obj.store = request.user.store
+            except Store.DoesNotExist:
+                # Tratar caso o usuário não tenha loja (embora não deva acontecer no seu fluxo)
+                pass 
+        
+        super().save_model(request, obj, form, change)
+    # --- FIM DA CORREÇÃO ---
 
 
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
-    # <--- ALTERADO: 'get_variant_values' substitui 'color', 'size', 'model'
     list_display = ('product', 'get_variant_values', 'sku', 'stock', 'price', 'is_active')
-    # <--- ALTERADO: Removido 'color', 'size'. Adicionado filtro por atributo.
     list_filter = ('product__store', 'is_active', 'values__attribute')
     search_fields = ('sku', 'product__name', 'values__value')
     readonly_fields = ('created_at', 'updated_at')
     list_select_related = ('product',)
     autocomplete_fields = ('product',)
-    # <--- ALTERADO: Adicionado 'filter_horizontal' para 'values'
     filter_horizontal = ('values',)
 
     def get_variant_values(self, obj):
@@ -86,7 +100,6 @@ class OrderItemInline(admin.TabularInline):
     extra = 0
     fields = ('variant', 'quantity', 'unit_price')
     readonly_fields = ('unit_price', 'get_subtotal')
-    # <--- OK: 'variant' ainda é a FK para ProductVariant
     autocomplete_fields = ('variant',) 
 
     def get_subtotal(self, obj):
