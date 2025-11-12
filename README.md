@@ -1,4 +1,3 @@
-
 # README (Português)
 
 Este repositório contém a documentação principal em português em `README.pt.md`.
@@ -57,7 +56,9 @@ docker-compose ps
 ```
 
 **Database Credentials:**
+
 - **PostgreSQL**: `localhost:5432`
+
   - Database: `sales_db`
   - Username: `postgres`
   - Password: `postgres123`
@@ -92,6 +93,7 @@ python3 manage.py runserver
 ```
 
 Backend will be available at: `http://localhost:8000`
+
 - API Base URL: `http://localhost:8000/api`
 - Admin Panel: `http://localhost:8000/admin`
 
@@ -330,3 +332,59 @@ Fluxo resumido:
 4. Extraia/copiar os arquivos PNG para `docs/diagrams/generated/` no repositório local, adicione-os ao Git e faça um commit/push.
 
 Detalhes e comandos passo-a-passo estão em `docs/DIAGRAMS_ACTION_INSTRUCTIONS.md`.
+
+## 🆕 Novas modificações (12/11/2025)
+
+Abaixo um resumo das alterações recentes encontradas no repositório. O resumo foi gerado a partir do estado atual dos arquivos (migrations, testes e código) — se quiser que eu inclua referências a commits/PRs específicas, diga quais ou forneça um intervalo de commits.
+
+- Backend
+
+  - Suporte a variantes de produto (SKU, cor, tamanho) e imagens: alterações de modelos e migrações presentes em `backend/sales/migrations/0002` até `0006`.
+  - Teste automatizado relacionado à migração de produtos para variantes: `backend/sales/tests/test_migrate_products_to_variants.py`.
+  - Scripts utilitários: `backend/create_admin.py` (auxilia na criação de usuários/admins em ambientes locais).
+
+- Frontend
+
+  - Internacionalização adicionada (`frontend/src/i18n.ts`, `frontend/src/locales/en.json`, `frontend/src/locales/pt-BR.json`).
+  - Novas páginas e testes de frontend (Vitest + `frontend/src/__tests__`).
+  - Configurações e ajustes do build: `frontend/vite.config.ts`, `tsconfig.json`, `package.json` (dependências e scripts).
+
+- Documentação & automações
+  - Workflow/automação para renderizar diagramas PlantUML e publicar artefatos (ver seção "Gerar diagramas automaticamente").
+  - Scripts para geração local/CI de diagramas: `scripts/render-diagrams.sh` e `scripts/render-diagrams.ps1`.
+
+Como validar as alterações rapidamente
+
+1. Backend (migrations + testes):
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py test backend.sales.tests.test_migrate_products_to_variants
+```
+
+2. Frontend (dev + testes):
+
+```powershell
+cd frontend
+npm install
+npm run dev            # rodar app localmente
+npm run test           # rodar testes (Vitest)
+```
+
+3. Gerar diagramas (local/CI):
+
+```powershell
+# Usando o script PowerShell
+./scripts/render-diagrams.ps1
+# Ou no Linux/macOS
+./scripts/render-diagrams.sh
+```
+
+Notas
+
+- Este resumo é baseado no estado atual do repositório (arquivos e migrações presentes). Se preferir que eu gere uma seção com changelog por commit ou PR, eu posso: me diga o intervalo de commits ou permita que eu acesse o histórico Git.
+- Se quiser que eu adicione links diretos para os arquivos mencionados ou exemplos de uso mais detalhados, eu adiciono na próxima atualização.
